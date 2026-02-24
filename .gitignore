@@ -1,0 +1,16 @@
+out/
+build/
+.vs/
+*.sln
+*.vcxproj
+*.user
+CMakeSettings.json
+
+__pycache__/
+*.pyc
+
+*.exe
+*.dll
+*.pyd
+*.pdb
+*.ilk
