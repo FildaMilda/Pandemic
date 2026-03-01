@@ -122,23 +122,23 @@ struct GameFlags {
         actions_remaining = value;
     }
 
-    inline bool IsCured(Color colorIdx) const {
+    inline bool IsCured(ColorType colorIdx) const {
         return (cured_bits >> (int)colorIdx) & 1;
     }
-    inline void SetCured(Color colorIdx) {
+    inline void SetCured(ColorType colorIdx) {
         cured_bits |= (1 << (int)colorIdx);
     }
     inline bool IsAllCured() const {
-        return IsCured(Color::RED) && IsCured(Color::BLACK) && IsCured(Color::BLUE) && IsCured(Color::YELLOW);
+        return IsCured(ColorType::RED) && IsCured(ColorType::BLACK) && IsCured(ColorType::BLUE) && IsCured(ColorType::YELLOW);
     }
     inline uint8_t GetCuredCount() const {
         return std::popcount(cured_bits);
     }
 
-    inline bool IsEradicated(Color colorIdx) const {
+    inline bool IsEradicated(ColorType colorIdx) const {
         return (eradicated_bits >> (int)colorIdx) & 1;
     }
-    inline void SetEradicated(Color colorIdx) {
+    inline void SetEradicated(ColorType colorIdx) {
         eradicated_bits |= (1 << (int)colorIdx);
     }
     inline bool AreAllCured() const {

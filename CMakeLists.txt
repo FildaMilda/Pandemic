@@ -18,13 +18,16 @@ include_directories(
     src/Bindings
 )
 
+add_subdirectory(extern/godot-cpp)
+
 # --- DEFINE SOURCE GROUPS ---
 # PRO TIP: We use GLOB to automatically find all .cpp files in these folders.
 # This means you don't have to update CMake every time you add a new file!
 
 file(GLOB GAMELOGIC_SOURCES "src/GameLogic/*.cpp")
 file(GLOB AI_SOURCES "src/AI/*.cpp")
-file(GLOB BINDING_SOURCES "src/Bindings/*.cpp")
+file(GLOB PYTHON_BINDINGS "src/Bindings/Python/*.cpp")
+file(GLOB GODOT_BINDINGS "src/Bindings/Godot/*.cpp")
 
 # --- TARGET 1: THE C++ EXECUTABLE (For Debugging) ---
 # It needs GameLogic + AI + main.cpp (but NOT Python bindings)
@@ -49,7 +52,7 @@ endif()
 
 # --- TARGET 2: THE PYTHON MODULE ---
 pybind11_add_module(pandemic_cpp 
-    ${BINDING_SOURCES}
+    ${PYTHON_BINDINGS}
     ${GAMELOGIC_SOURCES} 
     ${AI_SOURCES}
 )
@@ -67,3 +70,49 @@ else()
         $<$<CONFIG:RelWithDebInfo>:-O3 -march=native>
     )
 endif()
+
+# AUTOMATION: Copy the compiled .pyd file to the Python folder
+add_custom_command(TARGET pandemic_cpp POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:pandemic_cpp>
+    "${CMAKE_SOURCE_DIR}/Scripts"
+    COMMENT "Deploying Python Module to /Scripts folder..."
+)
+
+# --- TARGET 3: THE GODOT GDEXTENSION ---
+# We create a SHARED library for Godot to load
+add_library(pandemic_godot SHARED
+    ${GODOT_BINDINGS}
+    ${GAMELOGIC_SOURCES}
+    ${AI_SOURCES}
+)
+
+# Tell this target where to find Godot headers
+target_include_directories(pandemic_godot PRIVATE
+    extern/godot-cpp/include
+    extern/godot-cpp/gen/include
+    extern/godot-cpp/core
+    src/GameLogic
+    src/AI
+    src/Bindings
+)
+
+# Link against the godot-cpp library 
+# (This handles the heavy lifting of connecting to the engine)
+target_link_libraries(pandemic_godot PRIVATE godot-cpp)
+
+# Optimization for Godot Target (Match your existing style)
+if(MSVC)
+    target_compile_options(pandemic_godot PRIVATE $<$<CONFIG:Release>:/O2 /arch:AVX2>)
+else()
+    target_compile_options(pandemic_godot PRIVATE $<$<CONFIG:Release>:-O3 -march=native>)
+endif()
+
+# Automatically copy the compiled library to the Godot bin folder
+add_custom_command(TARGET pandemic_godot POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/godot/pandemic/bin"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:pandemic_godot>
+        "${CMAKE_SOURCE_DIR}/godot/pandemic/bin/"
+    COMMENT "Moving library to Godot project..."
+)

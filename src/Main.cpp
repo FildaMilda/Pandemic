@@ -43,7 +43,7 @@ int main()
     */
 
     /*
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 10000; i++) {
         std::mt19937 realRng(i);
 
         CardRegistry cards;
@@ -67,6 +67,7 @@ int main()
     }
     */
 
+    
     int action_count = 0;
     while (state.currentState == State::InProgress) {
         // 2. Think! (Run 1000 simulations)

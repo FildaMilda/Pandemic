@@ -16,7 +16,7 @@ struct CityNode {
     uint8_t black_cubes : 2;
     uint8_t red_cubes : 2;
 
-    inline uint8_t GetCubes(Color colorIdx) const {
+    inline uint8_t GetCubes(ColorType colorIdx) const {
         /*
         Get cube count by Color Index (0-3)
         We use a switch because bitfields cannot be accessed via array index directly
@@ -30,7 +30,7 @@ struct CityNode {
         }
     }
 
-    inline bool AddCube(Color colorIdx) {
+    inline bool AddCube(ColorType colorIdx) {
         /*
         Add a cube safely (Max 3)
         Returns true if an OUTBREAK would occur (count > 3)
@@ -52,7 +52,7 @@ struct CityNode {
         return false;
     }
 
-    inline bool RemoveCube(Color colorIdx) {
+    inline bool RemoveCube(ColorType colorIdx) {
         switch (colorIdx) {
         case BLUE:   if (blue_cubes > 0) { blue_cubes--; return true; } break;
         case YELLOW: if (yellow_cubes > 0) { yellow_cubes--; return true; } break;
@@ -62,7 +62,7 @@ struct CityNode {
         return false;
     }
 
-    inline uint8_t RemoveAllCubes(Color colorIdx) {
+    inline uint8_t RemoveAllCubes(ColorType colorIdx) {
         uint8_t removed = 0;
         switch (colorIdx) {
         case BLUE:   removed = blue_cubes; blue_cubes = 0; break;
@@ -90,13 +90,13 @@ struct CityState {
         outbreak_flag = 0;
     }
 
-    inline bool AddDisease(uint8_t cityIndex, Color color) {
+    inline bool AddDisease(uint8_t cityIndex, ColorType color) {
         bool isOutbreak = cities[cityIndex].AddCube(color);
         if (!isOutbreak) global_cubes[color]++;
         return isOutbreak;
     }
 
-    inline void AddDiseases(uint8_t cityIndex, Color color, uint8_t count) {
+    inline void AddDiseases(uint8_t cityIndex, ColorType color, uint8_t count) {
         for (uint8_t i = 0; i < count; i++) AddDisease(cityIndex, color);
     }
 
@@ -108,20 +108,20 @@ struct CityState {
         station_mask &= ~(1ULL << cityId);
     }
 
-    inline void RemoveDisease(uint8_t cityId, Color color) {
+    inline void RemoveDisease(uint8_t cityId, ColorType color) {
         if (cities[cityId].RemoveCube(color)) global_cubes[color]--;
     }
 
-    inline void RemoveAllDiseases(uint8_t cityId, Color color) {
+    inline void RemoveAllDiseases(uint8_t cityId, ColorType color) {
         uint8_t removed = cities[cityId].RemoveAllCubes(color);
         global_cubes[color] -= removed;
     }
 
-    inline bool HasDisease(uint8_t cityId, Color color) const {
+    inline bool HasDisease(uint8_t cityId, ColorType color) const {
         return cities[cityId].GetCubes(color) > 0;
     }
 
-    inline uint8_t GetDiseaseCount(uint8_t city_id, Color color) const {
+    inline uint8_t GetDiseaseCount(uint8_t city_id, ColorType color) const {
         return cities[city_id].GetCubes(color);
     }
 
@@ -150,12 +150,16 @@ struct CityState {
     }
 
     inline bool HasLostToCubes() const {
-        return global_cubes[Color::RED] > 24 || global_cubes[Color::BLACK] > 24 
-            || global_cubes[Color::BLUE] > 24 || global_cubes[Color::YELLOW] > 24;
+        return global_cubes[ColorType::RED] > 24 || global_cubes[ColorType::BLACK] > 24 
+            || global_cubes[ColorType::BLUE] > 24 || global_cubes[ColorType::YELLOW] > 24;
     }
 
-    inline uint8_t GetTotalCubeCount(Color color) const {
+    inline uint8_t GetTotalCubeCount(ColorType color) const {
         return global_cubes[color];
+    }
+
+    inline uint8_t GetCubeCount(uint8_t city_id, ColorType color) const {
+        return cities[city_id].GetCubes(color);
     }
 
     void Print() const;

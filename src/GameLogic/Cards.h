@@ -18,7 +18,7 @@ struct CardData {
     std::string name;
     CardType type;
     uint8_t cityIndex;
-    Color color;
+    ColorType color;
 
     inline void Print() const {
         std::cout << std::format("Name: {}\nType: {}\nIndex: {}\nColor: {}\n", name, (int)type, (int)cityIndex, (int)color);
@@ -86,7 +86,7 @@ public:
         return cardId;
     }
 
-    static inline Color GetColor(uint8_t cardId) {
+    static inline ColorType GetColor(uint8_t cardId) {
         return registry[cardId].color;
     }
 

@@ -154,7 +154,7 @@ struct ActionList {
     }
 
     // (2) ACTION TYPE (treat)
-    inline void Add(uint8_t type, uint8_t city_id, uint8_t player_id, Color color) {
+    inline void Add(uint8_t type, uint8_t city_id, uint8_t player_id, ColorType color) {
         if (count < SIZE) {
             actions[count].treat.type = type;
             actions[count].treat.target_city = city_id;
@@ -177,7 +177,7 @@ struct ActionList {
     }
 
     // (4) ACTION TYPE (discover cure)
-    inline void Add(uint8_t type, Color color, uint8_t card0, uint8_t card1, uint8_t card2, uint8_t card3, uint8_t card4) {
+    inline void Add(uint8_t type, ColorType color, uint8_t card0, uint8_t card1, uint8_t card2, uint8_t card3, uint8_t card4) {
         if (count < SIZE) {
             actions[count].discover_cure.type = type;
             actions[count].discover_cure.color_id = (uint8_t)color;

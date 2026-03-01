@@ -1,5 +1,6 @@
 out/
 build/
+bin/
 .vs/
 *.sln
 *.vcxproj
@@ -14,3 +15,12 @@ __pycache__/
 *.pyd
 *.pdb
 *.ilk
+
+Scripts/*.pyd
+Scripts/*.so
+
+!Scripts/*.py
+
+.godot/
+*.import
+export_presets.cfg

@@ -12,7 +12,6 @@
 #include <cassert>
 #include <array>
 
-// Still 7 free bytes
 struct GameState {
 	CityState cityState;
 	Players players;
@@ -54,7 +53,7 @@ struct GameState {
 		players.RemoveCard(gameFlags.GetActivePlayer(), players.GetLocation(gameFlags.GetActivePlayer()));
 		decks.player_deck.AddToDiscard(players.GetLocation(gameFlags.GetActivePlayer()));
 	}
-	inline void DoTreat(Color color) {
+	inline void DoTreat(ColorType color) {
 		if (players.roles[gameFlags.GetActivePlayer()] != Role::Medic && !gameFlags.IsCured(color))
 			cityState.RemoveDisease(players.GetLocation(gameFlags.GetActivePlayer()), color);
 		else
@@ -153,10 +152,10 @@ struct GameState {
 
 	inline void DoMedicMovementPassive(uint8_t playerId, uint8_t cityId) {
 		if (players.GetRole(playerId) != Role::Medic) return;
-		if (gameFlags.IsCured(Color::RED)) cityState.RemoveAllDiseases(cityId, Color::RED);
-		if (gameFlags.IsCured(Color::BLUE)) cityState.RemoveAllDiseases(cityId, Color::BLUE);
-		if (gameFlags.IsCured(Color::YELLOW)) cityState.RemoveAllDiseases(cityId, Color::YELLOW);
-		if (gameFlags.IsCured(Color::BLACK)) cityState.RemoveAllDiseases(cityId, Color::BLACK);
+		if (gameFlags.IsCured(ColorType::RED)) cityState.RemoveAllDiseases(cityId, ColorType::RED);
+		if (gameFlags.IsCured(ColorType::BLUE)) cityState.RemoveAllDiseases(cityId, ColorType::BLUE);
+		if (gameFlags.IsCured(ColorType::YELLOW)) cityState.RemoveAllDiseases(cityId, ColorType::YELLOW);
+		if (gameFlags.IsCured(ColorType::BLACK)) cityState.RemoveAllDiseases(cityId, ColorType::BLACK);
 	}
 
 	inline void DoOperationsExpertBuild() {
@@ -169,7 +168,7 @@ struct GameState {
 
 	// Quarantine Specialist special passive action
 	// Medic passive action
-	inline bool IsCityProtected(uint8_t cityId, Color color) {
+	inline bool IsCityProtected(uint8_t cityId, ColorType color) {
 		if (gameFlags.IsGuarantineSpecialistInGame()) {
 			// Quarantine Specialist is standing on the city
 			if (players.GetLocation(gameFlags.GetQuarantineSpecialistID()) == cityId) return true;
@@ -183,7 +182,7 @@ struct GameState {
 		return false;
 	}
 
-	inline bool InfectCity(uint8_t city_id, Color color) {
+	inline bool InfectCity(uint8_t city_id, ColorType color) {
 		if (gameFlags.IsEradicated(color)) return false;
 		if (IsCityProtected(city_id, color)) return false;
 
@@ -223,7 +222,7 @@ struct GameState {
 	inline void InfectCities() {
 		for (int i = 0; i < gameFlags.GetInfectionRateAmount(); i++) {
 			uint8_t cardId = decks.infection_deck.DrawAndDiscard();
-			Color color = CardRegistry::GetColor(cardId);
+			ColorType color = CardRegistry::GetColor(cardId);
 			InfectCity(cardId, color);
 		}
 	}
@@ -244,7 +243,7 @@ struct GameState {
 		Discard this card to the Infection Discard Pile.
 		*/
 		uint8_t bottom_card = decks.infection_deck.DrawBottomAndDiscard();
-		Color card_color = CardRegistry::GetColor(bottom_card);
+		ColorType card_color = CardRegistry::GetColor(bottom_card);
 		if (!gameFlags.IsCured(card_color)) {
 			for (int i = 0; i < 3; i++) {
 				bool outbreak = InfectCity(bottom_card, card_color);
@@ -260,9 +259,9 @@ struct GameState {
 	}
 
 	inline void UpdateEradicationFlag() {
-		for (int color_id = 0; color_id < Color::COUNT; color_id++) {
-			if (cityState.GetTotalCubeCount((Color)color_id) == 0 && gameFlags.IsCured((Color)color_id)) {
-				gameFlags.SetEradicated((Color)color_id);
+		for (int color_id = 0; color_id < ColorType::COUNT; color_id++) {
+			if (cityState.GetTotalCubeCount((ColorType)color_id) == 0 && gameFlags.IsCured((ColorType)color_id)) {
+				gameFlags.SetEradicated((ColorType)color_id);
 			}
 		}
 	}
@@ -273,7 +272,7 @@ struct GameState {
 	void AddOpsExpertActions(ActionList& list) const;
 
 	void Execute(Action action);
-	void HandleOutbreak(uint8_t city_id, Color color);
+	void HandleOutbreak(uint8_t city_id, ColorType color);
 };
 
 #endif

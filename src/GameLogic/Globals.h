@@ -26,7 +26,7 @@ const int INFECTION_DECK_SIZE = NUMBER_OF_CITIES;
 const int PLAYER_DECK_SIZE = NUMBER_OF_CITIES + NUMBER_OF_EVENT_CARDS;
 const int MIN_EPIDEMIC_CARD = 4;
 
-enum Color : uint8_t {
+enum ColorType : uint8_t {
     BLUE = 0,
     YELLOW = 1,
     BLACK = 2,

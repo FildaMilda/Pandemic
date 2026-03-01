@@ -13,7 +13,7 @@ void GameState::Setup(std::mt19937* rng)
 
 	InfectCitiesSetup();
 	DealPlayerCards();
-	InsertEpidemicCards(rng, Difficulty::HEROIC);
+	InsertEpidemicCards(rng, Difficulty::INTRO);
 	SetRoles();
 }
 
@@ -131,7 +131,7 @@ void GameState::GetPossibleActions(ActionList& list) const
 			card_count++;
 		}
 
-		void GenerateCureCombinations(int required_to_cure, Color cure_color, ActionList& list) {
+		void GenerateCureCombinations(int required_to_cure, ColorType cure_color, ActionList& list) {
 			if (card_count < required_to_cure) return;
 
 			uint32_t mask = (1 << required_to_cure) - 1;
@@ -170,29 +170,29 @@ void GameState::GetPossibleActions(ActionList& list) const
 		ColorCards black_cards;
 
 		void Add(uint8_t card) {
-			Color color = CardRegistry::GetColor(card);
+			ColorType color = CardRegistry::GetColor(card);
 
 			switch (color) {
-			case Color::BLACK:
+			case ColorType::BLACK:
 				black_cards.Add(card);
 				break;
-			case Color::BLUE:
+			case ColorType::BLUE:
 				blue_cards.Add(card);
 				break;
-			case Color::RED:
+			case ColorType::RED:
 				red_cards.Add(card);
 				break;
-			case Color::YELLOW:
+			case ColorType::YELLOW:
 				yellow_cards.Add(card);
 				break;
 			}
 		}
 
 		void GenerateCureCombinations(int required_to_cure, ActionList& list) {
-			red_cards.GenerateCureCombinations(required_to_cure, Color::RED, list);
-			blue_cards.GenerateCureCombinations(required_to_cure, Color::BLUE, list);
-			black_cards.GenerateCureCombinations(required_to_cure, Color::BLACK, list);
-			yellow_cards.GenerateCureCombinations(required_to_cure, Color::YELLOW, list);
+			red_cards.GenerateCureCombinations(required_to_cure, ColorType::RED, list);
+			blue_cards.GenerateCureCombinations(required_to_cure, ColorType::BLUE, list);
+			black_cards.GenerateCureCombinations(required_to_cure, ColorType::BLACK, list);
+			yellow_cards.GenerateCureCombinations(required_to_cure, ColorType::YELLOW, list);
 		}
 	};
 
@@ -475,7 +475,7 @@ void GameState::Execute(Action action)
 		break;
 
 	case TREAT:
-		DoTreat((Color)action.treat.color_id);
+		DoTreat((ColorType)action.treat.color_id);
 		gameFlags.UseAction();
 		break;
 
@@ -593,7 +593,7 @@ void GameState::Execute(Action action)
 	EndTurn();
 }
 
-void GameState::HandleOutbreak(uint8_t city_id, Color color) 
+void GameState::HandleOutbreak(uint8_t city_id, ColorType color) 
 {
 	cityState.SetOutbroken(city_id);
 
