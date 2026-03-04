@@ -6,6 +6,12 @@
 #include <bit>
 #include <string>
 #include "Globals.h"
+#include "Cards.h"
+
+struct ColorCount {
+    int count;
+    ColorType color;
+};
 
 struct Players {
     // HANDS: 4 Players * 8 Bytes = 32 Bytes
@@ -78,6 +84,24 @@ struct Players {
 
     inline Role GetRole(uint8_t playerId) const {
         return (Role)roles[playerId];
+    }
+
+    inline ColorCount GetMostFrequentColor(uint8_t player_id) const {
+        uint64_t hand = hands[player_id];
+
+        int maxCount = 0;
+        ColorType bestColor = ColorType::NO_COLOR;
+
+        for (int i = 0; i < 4; ++i) {
+            int currentCount = std::popcount(hand & GameConstants::COLOR_MASKS[i]);
+
+            if (currentCount > maxCount) {
+                maxCount = currentCount;
+                bestColor = (ColorType)(i);
+            }
+        }
+
+        return { maxCount, bestColor };
     }
 
     void Print() const;

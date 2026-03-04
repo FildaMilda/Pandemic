@@ -1,20 +1,14 @@
 [gd_scene load_steps=8 format=3 uid="uid://cv258ff1wurf5"]
 
 [ext_resource type="Script" uid="uid://hihqb7yad2ad" path="res://scripts/city_node.gd" id="1_hpa3k"]
-[ext_resource type="Texture2D" uid="uid://c8mhlrnircnwc" path="res://assets/images/disease/red.png" id="2_m7k8b"]
+[ext_resource type="Texture2D" uid="uid://c8vnojd862qw5" path="res://assets/images/disease/red.png" id="2_m7k8b"]
 [ext_resource type="Texture2D" uid="uid://cuilacao73bdb" path="res://assets/images/disease/blue_t.png" id="2_oacpt"]
 [ext_resource type="Texture2D" uid="uid://dia0k4sy0hofj" path="res://assets/images/disease/yellow_t.png" id="3_2jj31"]
 [ext_resource type="Texture2D" uid="uid://gekb1mubdp8x" path="res://assets/images/disease/black_t.png" id="4_drx7m"]
+[ext_resource type="PackedScene" uid="uid://cajtfjdb3017" path="res://scenes/disease_counter.tscn" id="6_2jj31"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_m7k8b"]
 radius = 13.441801
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_oacpt"]
-bg_color = Color(1, 0.08627451, 0.6, 1)
-corner_radius_top_left = 20
-corner_radius_top_right = 20
-corner_radius_bottom_right = 20
-corner_radius_bottom_left = 20
 
 [node name="City" type="Area2D"]
 script = ExtResource("1_hpa3k")
@@ -48,16 +42,12 @@ shape = SubResource("CircleShape2D_m7k8b")
 disabled = true
 debug_color = Color(1, 1, 1, 0.41960785)
 
-[node name="PanelContainer" type="PanelContainer" parent="."]
-offset_left = 17.0
-offset_top = 20.0
-offset_right = 31.0
-offset_bottom = 35.0
-theme_override_styles/panel = SubResource("StyleBoxFlat_oacpt")
+[node name="DiseaseCounters" type="Node2D" parent="."]
 
-[node name="Label" type="Label" parent="PanelContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 10
-text = "0"
-horizontal_alignment = 1
-vertical_alignment = 1
+[node name="BlueCounter" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]
+
+[node name="BlackCounter" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]
+
+[node name="RedCounter" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]
+
+[node name="YellowCounter" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]

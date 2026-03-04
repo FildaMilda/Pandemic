@@ -20,7 +20,7 @@ struct GameState {
 	Decks decks;
 	State currentState;
 
-	void Setup(std::mt19937* externalRng);
+	void Setup(Difficulty diff, uint8_t player_count, std::mt19937* externalRng);
 	void InfectCitiesSetup();
 	void DealPlayerCards();
 	void InsertEpidemicCards(std::mt19937* rng, Difficulty diff);

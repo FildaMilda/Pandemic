@@ -76,10 +76,11 @@ struct CityNode {
 
 struct CityState {
     // 48 Cities * 2 Bytes = 96 Bytes Total
-    CityNode cities[NUMBER_OF_CITIES];
     uint64_t outbreak_flag;
     uint64_t station_mask;
+    uint64_t hotspot_mask;
     uint8_t global_cubes[4];
+    CityNode cities[NUMBER_OF_CITIES];
 
     void Init() {
         std::memset(cities, 0, sizeof(cities));
@@ -88,11 +89,15 @@ struct CityState {
         // Add station to Atlanta
         AddStation(0);
         outbreak_flag = 0;
+        hotspot_mask = 0;
     }
 
     inline bool AddDisease(uint8_t cityIndex, ColorType color) {
         bool isOutbreak = cities[cityIndex].AddCube(color);
-        if (!isOutbreak) global_cubes[color]++;
+        if (!isOutbreak) {
+            global_cubes[color]++;
+            UpdateHotspotBit(cityIndex);
+        }
         return isOutbreak;
     }
 
@@ -109,12 +114,18 @@ struct CityState {
     }
 
     inline void RemoveDisease(uint8_t cityId, ColorType color) {
-        if (cities[cityId].RemoveCube(color)) global_cubes[color]--;
+        if (cities[cityId].RemoveCube(color)) {
+            global_cubes[color]--;
+            UpdateHotspotBit(cityId);
+        }
     }
 
     inline void RemoveAllDiseases(uint8_t cityId, ColorType color) {
         uint8_t removed = cities[cityId].RemoveAllCubes(color);
         global_cubes[color] -= removed;
+        if (removed > 0) {
+            UpdateHotspotBit(cityId);
+        }
     }
 
     inline bool HasDisease(uint8_t cityId, ColorType color) const {
@@ -137,6 +148,10 @@ struct CityState {
         return std::popcount(station_mask);
     }
 
+    inline uint8_t GetHotspotCount() const {
+        return std::popcount(hotspot_mask);
+    }
+
     inline void SetOutbroken(uint8_t cityId) {
         outbreak_flag |= (1ULL << cityId);
     }
@@ -150,8 +165,8 @@ struct CityState {
     }
 
     inline bool HasLostToCubes() const {
-        return global_cubes[ColorType::RED] > 24 || global_cubes[ColorType::BLACK] > 24 
-            || global_cubes[ColorType::BLUE] > 24 || global_cubes[ColorType::YELLOW] > 24;
+        return global_cubes[ColorType::RED] > MAX_NUMBER_OF_CUBES_PER_COLOR || global_cubes[ColorType::BLACK] > MAX_NUMBER_OF_CUBES_PER_COLOR
+            || global_cubes[ColorType::BLUE] > MAX_NUMBER_OF_CUBES_PER_COLOR || global_cubes[ColorType::YELLOW] > MAX_NUMBER_OF_CUBES_PER_COLOR;
     }
 
     inline uint8_t GetTotalCubeCount(ColorType color) const {
@@ -160,6 +175,29 @@ struct CityState {
 
     inline uint8_t GetCubeCount(uint8_t city_id, ColorType color) const {
         return cities[city_id].GetCubes(color);
+    }
+
+    inline void UpdateHotspotBit(uint8_t cityIndex) {
+        // A city is a hotspot if it has exactly 3 cubes of ANY color
+        bool isHot = (cities[cityIndex].GetCubes(ColorType::BLUE) >= 3) ||
+            (cities[cityIndex].GetCubes(ColorType::YELLOW) >= 3) ||
+            (cities[cityIndex].GetCubes(ColorType::BLACK) >= 3) ||
+            (cities[cityIndex].GetCubes(ColorType::RED) >= 3);
+
+        if (isHot) {
+            hotspot_mask |= (1ULL << cityIndex);
+        }
+        else {
+            hotspot_mask &= ~(1ULL << cityIndex);
+        }
+    }
+
+    inline uint8_t GetDistanceToNearestStation(uint8_t playerLocation) const {
+        return MapData::GetDistanceToNearest(playerLocation, station_mask);
+    }
+
+    inline uint8_t GetDistanceToNearestHotspot(uint8_t playerLocation) const {
+        return MapData::GetDistanceToNearest(playerLocation, hotspot_mask);
     }
 
     void Print() const;

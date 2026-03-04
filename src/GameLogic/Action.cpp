@@ -85,6 +85,8 @@ const char* Action::GetActionName(uint8_t type) const
     case ONE_QUIET_NIGHT: return "ONE_QUIET_NIGHT";
     case AIRLIFT: return "AIRLIFT";
     case DISCARD_CARD: return "DISCARD_CARD";
+    case REMOVE_STATION: return "REMOVE_STATION";
+    case END_TURN: return "END_TURN";
     default: return "UNKNOWN_ACTION";
     }
 }

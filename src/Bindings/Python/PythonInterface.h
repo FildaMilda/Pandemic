@@ -16,7 +16,7 @@ class PandemicEnv {
 
 public:
     PandemicEnv(int seed) : rng(seed) {
-        state.Setup(&rng);
+        state.Setup(Difficulty::INTRO, 4, &rng);
     }
 
     py::array_t<float> Reset();

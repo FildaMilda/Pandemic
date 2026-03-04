@@ -4,7 +4,7 @@ using namespace pybind11::literals;
 
 py::array_t<float> PandemicEnv::Reset()
 {
-	state.Setup(&rng);
+	state.Setup(Difficulty::INTRO, 4, &rng);
 	return GetTensor();
 }
 

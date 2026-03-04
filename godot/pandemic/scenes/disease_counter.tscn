@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://cajtfjdb3017"]
+
+[ext_resource type="Script" uid="uid://bm3geackrec8c" path="res://scripts/disease_counter.gd" id="1_wppo4"]
+
+[node name="DiseaseCounter" type="Node2D"]
+script = ExtResource("1_wppo4")
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0

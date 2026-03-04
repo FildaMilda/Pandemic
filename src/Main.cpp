@@ -3,12 +3,16 @@
 #include "Game.h"
 #include "Cards.h"
 #include "MCTS.h"
+#include "EA.h"
 
 #include <fstream>
 #include <iostream>
 
 int main()
 {
+    EvolveWeights();
+
+    /*
     std::random_device rd;
     std::mt19937 realRng(71);
 
@@ -17,6 +21,7 @@ int main()
      
     GameState state; 
     state.Setup(&realRng);
+    */
 
     /*
     ActionList legalMoves;
@@ -67,7 +72,7 @@ int main()
     }
     */
 
-    
+    /*
     int action_count = 0;
     while (state.currentState == State::InProgress) {
         // 2. Think! (Run 1000 simulations)
@@ -83,5 +88,5 @@ int main()
 
     int i = 0;
     std::cout << "Game Ended (" << i << "), reason: " << (int)state.currentState << "\n";
-    
+    */
 }

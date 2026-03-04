@@ -1,19 +1,19 @@
 #include "Game.h"
 
-void GameState::Setup(std::mt19937* rng)
+void GameState::Setup(Difficulty diff, uint8_t player_count, std::mt19937* rng)
 {
 	this->rng_ptr = rng;
 	currentState = State::InProgress;
 
 	gameFlags.Init();
 	cityState.Init();
-	players.Init(4);
+	players.Init(player_count);
 	decks.infection_deck.Init(rng);
 	decks.player_deck.Init(rng);
 
 	InfectCitiesSetup();
 	DealPlayerCards();
-	InsertEpidemicCards(rng, Difficulty::INTRO);
+	InsertEpidemicCards(rng, diff);
 	SetRoles();
 }
 
@@ -200,7 +200,7 @@ void GameState::GetPossibleActions(ActionList& list) const
 
 	// Player don't have to use all 4 actions
 	// End turn action added
-	list.Add(END_TURN);
+	//list.Add(END_TURN);
 
 	// ===== Hand limit =====
 	// If the player has more than 7 cards, he needs to get rid of some

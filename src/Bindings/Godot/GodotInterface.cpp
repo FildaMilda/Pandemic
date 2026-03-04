@@ -33,7 +33,7 @@ PandemicGame::~PandemicGame() {}
 
 void PandemicGame::setup_game(int seed) {
     rng.seed(seed);
-    game.Setup(&rng);
+    game.Setup(Difficulty::INTRO, 4, &rng); //TODO: add diff and count args
     emit_signal("game_updated");
 }
 

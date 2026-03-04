@@ -69,16 +69,18 @@ public:
             Backpropagate(child, result);
         }
 
+        /*
         std::cout << "\n--- MCTS Stats (" << iterations << " iterations) ---\n";
         for (MCTSNode* child : root->children) {
-            double winRate = (child->visits > 0) ? (child->score / child->visits) : 0.0;
+            double score = (child->visits > 0) ? (child->score / child->visits) : 0.0;
 
             std::cout << "Move: ";
-            child->action_from_parent.Print(); // Assuming you have a Print() method
+            child->action_from_parent.Print();
             std::cout << " | Visits: " << child->visits
-                << " | Win Rate: " << (winRate * 100.0) << "%\n";
+                << " | Score: " << (score) << "\n";
         }
         std::cout << "--------------------------------\n";
+        */
 
         // 3. Select best child (Robust Child: most visits)
         // In rigorous MCTS, you pick most visits, not highest score.
@@ -183,16 +185,52 @@ private:
     // Heuristic Evaluation
     static double EvaluateState(const GameState& state) {
         if (state.currentState == State::AllCured) return 1.0;
+
         double score = 0.0;
+        uint8_t activePlayer = state.gameFlags.GetActivePlayer();
+        uint8_t activePlayerLocation = state.players.GetLocation(activePlayer);
 
-        // Cured diseases are huge progress (20% per cure)
-        score += state.gameFlags.GetCuredCount() * 0.25;
+        // ===== Positive =====
+        // Cured diseases are huge progress
+        score += state.gameFlags.GetCuredCount() * 0.40;
 
+        // Its better if players has 4 of the same colored cards
+        // than if he has 4 different colored cards (because of the cure discover)
+        for (int i = 0; i < state.players.count; ++i) {
+            ColorCount res = state.players.GetMostFrequentColor(i);
+            if (!state.gameFlags.IsCured(res.color)) {
+                score += (res.count * res.count) * 0.01;
+
+                int threshold = (state.players.GetRole(i) == Role::Scientist) ? CURE_CARD_COUNT-1 : CURE_CARD_COUNT;
+                if (res.count >= threshold) {
+                    int dist = state.cityState.GetDistanceToNearestStation(state.players.GetLocation(i));
+                    score += (1.0 / (dist + 1.0)) * 0.1;
+                }
+            }
+        }
+
+        // Go towards hotspots
+
+
+        // ===== Negative =====
         // Penalize outbreaks
         score -= std::pow(state.gameFlags.GetOutbreaks() / 8.0, 3);
 
-        // Clamp between 0.0 and 1.0
-        return std::clamp(score, 0.0, 0.99);
+        // Penalize cubes
+        float cubePressure = 0;
+        for (int c = 0; c < 4; ++c) {
+            float count = state.cityState.GetTotalCubeCount((ColorType)c);
+            cubePressure += std::pow(count / MAX_NUMBER_OF_CUBES_PER_COLOR, 2);
+        }
+        score -= (cubePressure / 4.0) * 0.3;
+
+        // Penalize player deck
+        score -= (NUMBER_OF_UNIQUE_CARDS - state.decks.player_deck.Count()) / NUMBER_OF_UNIQUE_CARDS;
+
+        // Penalize hotspots
+        score -= state.cityState.GetHotspotCount() * 0.05;
+
+        return std::clamp(score, -1.0, 1.0);
     }
 
     // --- STEP 4: BACKPROPAGATE ---

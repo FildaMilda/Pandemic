@@ -7,7 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --- FIND DEPENDENCIES ---
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
-find_package(pybind11 CONFIG REQUIRED)
 
 # --- INCLUDE DIRECTORIES ---
 # This allows you to include headers from any folder without messy paths
@@ -19,6 +18,7 @@ include_directories(
 )
 
 add_subdirectory(extern/godot-cpp)
+add_subdirectory(extern/pybind11)
 
 # --- DEFINE SOURCE GROUPS ---
 # PRO TIP: We use GLOB to automatically find all .cpp files in these folders.
