@@ -5,6 +5,8 @@
 #include "Game.h"
 #include "MCTS.h"
 
+#include <mutex>
+
 struct GameResult {
 	State finalState;
 	int actionCount;
