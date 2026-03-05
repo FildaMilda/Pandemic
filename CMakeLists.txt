@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(SuperOptimizedPandemic)
+project(Pandemic)
 
 # Use C++20 standard
 set(CMAKE_CXX_STANDARD 20)
@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # --- FIND DEPENDENCIES ---
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(OpenMP REQUIRED)
 
 # --- INCLUDE DIRECTORIES ---
 # This allows you to include headers from any folder without messy paths
@@ -32,10 +33,14 @@ file(GLOB GODOT_BINDINGS "src/Bindings/Godot/*.cpp")
 # --- TARGET 1: THE C++ EXECUTABLE (For Debugging) ---
 # It needs GameLogic + AI + main.cpp (but NOT Python bindings)
 add_executable(PandemicGame 
-    src/main.cpp 
+    src/Main.cpp 
     ${GAMELOGIC_SOURCES} 
     ${AI_SOURCES}
 )
+
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(PandemicGame PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 # Optimization flags for Executable
 if(MSVC)

@@ -10,7 +10,8 @@
 
 int main()
 {
-    EvolveWeights();
+    EvolveWeightsParallel();
+    //std::cout << (int)PlayGameMCTS(Difficulty::INTRO, 4, 42, Weights()) << "\n";
 
     /*
     std::random_device rd;

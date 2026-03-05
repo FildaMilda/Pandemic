@@ -9,6 +9,46 @@
 #include <iostream>
 #include <algorithm>
 
+struct Weights {
+    float cure_weight = 0.4f;
+    float card_progression = 0.01f;
+    float station_dist_penalty = 0.01f;
+    float outbreak_penalty = 1.0f;
+    float hotspot_penalty = 0.05f;
+    float cube_pressure = 0.3f;
+    float deck_progress_penalty = 1.0f;
+
+    void Randomize(std::mt19937& rng) {
+        std::uniform_real_distribution<float> dist(0.0f, 2.0f);
+        cure_weight = dist(rng);
+        card_progression = dist(rng);
+        station_dist_penalty = dist(rng);
+        outbreak_penalty = dist(rng);
+        hotspot_penalty = dist(rng);
+        cube_pressure = dist(rng);
+        deck_progress_penalty = dist(rng);
+    }
+
+    // Mutate weights slightly
+    inline void Mutate(float rate, std::mt19937& rng) {
+        std::uniform_real_distribution<float> dist(-rate, rate);
+        cure_weight += dist(rng);
+        card_progression += dist(rng);
+        outbreak_penalty += dist(rng);
+        hotspot_penalty += dist(rng);
+        cube_pressure += dist(rng);
+        deck_progress_penalty += dist(rng);
+        station_dist_penalty += dist(rng);
+
+        // Ensure weights stay positive/sensible
+        // cure_weight = std::max(0.01f, cure_weight);
+    }
+
+    inline void Print() const {
+        std::cout << "Cure: " << cure_weight << "\nCard: " << card_progression << "\nOutbreak: " << outbreak_penalty << "\nHotspot: " << hotspot_penalty << "\nCube: " << cube_pressure << "\nStation dist: " << station_dist_penalty << "\nDeck progress: " << deck_progress_penalty << "\n";
+    }
+};
+
 // UCT Constant: controls exploration vs exploitation. 
 // 1.41 (sqrt(2)) is standard. Higher = more exploration.
 const double UCT_C = 1.41421356;
@@ -56,7 +96,7 @@ struct MCTSNode {
 class MCTS {
 public:
     // THE MAIN FUNCTION: Returns the best action after N iterations
-    static Action GetBestMove(const GameState& rootState, int iterations) {
+    static Action GetBestMove(const GameState& rootState, int iterations, const Weights& weights) {
         // 1. Create the root node
         // Action() is a dummy "no-op" action for the root
         MCTSNode* root = new MCTSNode(rootState, nullptr, Action());
@@ -65,7 +105,7 @@ public:
         for (int i = 0; i < iterations; i++) {
             MCTSNode* leaf = Select(root);
             MCTSNode* child = Expand(leaf);
-            double result = Simulate(child);
+            double result = Simulate(child, weights);
             Backpropagate(child, result);
         }
 
@@ -157,11 +197,13 @@ private:
 
     // --- STEP 3: SIMULATE (Rollout) ---
     // Play random moves until the game ends or depth limit is reached
-    static double Simulate(MCTSNode* node) {
+    static double Simulate(MCTSNode* node, const Weights& weights) {
         GameState tempState = node->state;
         ActionList moves;
         int depth = 0;
-        const int MAX_DEPTH = 100; // Prevent infinite loops
+        const int MAX_DEPTH = 100;
+
+        thread_local std::mt19937 tls_rng(std::random_device{}());
 
         while (tempState.currentState == State::InProgress && depth < MAX_DEPTH) {
             tempState.GetPossibleActions(moves);
@@ -172,18 +214,18 @@ private:
             std::uniform_int_distribution<int> dist(0, moves.count - 1);
             // Note: In real engine, pass the RNG pointer down!
             // Using a local dirty RNG for brevity here, but fix this in prod!
-            static std::mt19937 rng(std::random_device{}());
+            //thread_local std::mt19937 rng(std::random_device{}());
 
-            Action randomMove = moves.Get(dist(rng));
-            tempState.Execute(randomMove);
+            Action randomMove = moves.Get(dist(tls_rng));
+            tempState.Execute(randomMove); 
             depth++;
         }
 
-        return EvaluateState(tempState);
+        return EvaluateState(tempState, weights);
     }
 
     // Heuristic Evaluation
-    static double EvaluateState(const GameState& state) {
+    static double EvaluateState(const GameState& state, const Weights& weights) {
         if (state.currentState == State::AllCured) return 1.0;
 
         double score = 0.0;
@@ -192,19 +234,19 @@ private:
 
         // ===== Positive =====
         // Cured diseases are huge progress
-        score += state.gameFlags.GetCuredCount() * 0.40;
+        score += state.gameFlags.GetCuredCount() * weights.cure_weight;
 
         // Its better if players has 4 of the same colored cards
         // than if he has 4 different colored cards (because of the cure discover)
         for (int i = 0; i < state.players.count; ++i) {
             ColorCount res = state.players.GetMostFrequentColor(i);
             if (!state.gameFlags.IsCured(res.color)) {
-                score += (res.count * res.count) * 0.01;
+                score += (res.count * res.count) * weights.card_progression;
 
                 int threshold = (state.players.GetRole(i) == Role::Scientist) ? CURE_CARD_COUNT-1 : CURE_CARD_COUNT;
                 if (res.count >= threshold) {
                     int dist = state.cityState.GetDistanceToNearestStation(state.players.GetLocation(i));
-                    score += (1.0 / (dist + 1.0)) * 0.1;
+                    score += (1.0 / (dist + 1.0)) * weights.station_dist_penalty;
                 }
             }
         }
@@ -214,7 +256,7 @@ private:
 
         // ===== Negative =====
         // Penalize outbreaks
-        score -= std::pow(state.gameFlags.GetOutbreaks() / 8.0, 3);
+        score -= std::pow(state.gameFlags.GetOutbreaks() / 8.0, 3) * weights.outbreak_penalty;
 
         // Penalize cubes
         float cubePressure = 0;
@@ -222,13 +264,13 @@ private:
             float count = state.cityState.GetTotalCubeCount((ColorType)c);
             cubePressure += std::pow(count / MAX_NUMBER_OF_CUBES_PER_COLOR, 2);
         }
-        score -= (cubePressure / 4.0) * 0.3;
+        score -= (cubePressure / 4.0) * weights.cube_pressure;
 
         // Penalize player deck
-        score -= (NUMBER_OF_UNIQUE_CARDS - state.decks.player_deck.Count()) / NUMBER_OF_UNIQUE_CARDS;
+        score -= (NUMBER_OF_UNIQUE_CARDS - state.decks.player_deck.Count()) / NUMBER_OF_UNIQUE_CARDS * weights.deck_progress_penalty;
 
         // Penalize hotspots
-        score -= state.cityState.GetHotspotCount() * 0.05;
+        score -= state.cityState.GetHotspotCount() * weights.hotspot_penalty;
 
         return std::clamp(score, -1.0, 1.0);
     }

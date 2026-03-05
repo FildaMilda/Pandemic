@@ -5,6 +5,11 @@
 #include "Game.h"
 #include "MCTS.h"
 
-bool PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed);
+struct GameResult {
+	State finalState;
+	int actionCount;
+};
+
+GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const Weights& weights);
 
 #endif
