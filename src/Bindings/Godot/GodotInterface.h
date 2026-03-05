@@ -5,6 +5,7 @@
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <random>
+#include <cstdint>
 #include "Game.h"
 
 namespace godot {

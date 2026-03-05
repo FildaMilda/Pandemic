@@ -8,6 +8,7 @@
 #include <random>
 #include <numeric>
 #include <execution>
+#include <cstdint>
 
 struct FitnessResult {
 	float winRate;

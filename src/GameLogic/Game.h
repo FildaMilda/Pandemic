@@ -11,6 +11,7 @@
 
 #include <cassert>
 #include <array>
+#include <cstdint>
 
 struct GameState {
 	CityState cityState;

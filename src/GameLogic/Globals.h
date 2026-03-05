@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <array>
+#include <cstdint>
 
 const int NUMBER_OF_ROLE_CARDS = 7;
 const int NUMBER_OF_CITY_CARDS = 48;

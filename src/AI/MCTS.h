@@ -8,6 +8,7 @@
 #include <limits>
 #include <iostream>
 #include <algorithm>
+#include <cstdint>
 
 struct Weights {
     float cure_weight = 0.4f;
