@@ -114,6 +114,9 @@ struct Players {
     }
 
     inline ColorCount GetLeastFrequentColor(uint8_t player_id) const {
+        // Returns only the colors that the player HAS. 
+        // If player has zero black cards, we don't count that
+
         uint64_t hand = hands[player_id];
 
         int minCount = 100;
@@ -122,7 +125,7 @@ struct Players {
         for (int i = 0; i < 4; ++i) {
             int currentCount = std::popcount(hand & GameConstants::COLOR_MASKS[i]);
 
-            if (currentCount < minCount) {
+            if (currentCount != 0 && currentCount < minCount) {
                 minCount = currentCount;
                 bestColor = (ColorType)(i);
             }

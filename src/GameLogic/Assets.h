@@ -8,6 +8,7 @@
 #include <mutex>
 
 struct GameResult {
+	GameState state;
 	State finalState;
 	int actionCount;
 };

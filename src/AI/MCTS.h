@@ -16,11 +16,11 @@ struct Weights {
     float station_dist_penalty = 0.01f;
     float outbreak_penalty = 1.0f;
     float hotspot_penalty = 0.05f;
-    float cube_pressure = 0.3f;
+    float cube_pressure = 1.5f;
     float deck_progress_penalty = 1.0f;
 
     void Randomize(std::mt19937& rng) {
-        std::uniform_real_distribution<float> dist(0.0f, 2.0f);
+        std::uniform_real_distribution<float> dist(0.0f, 3.0f);
         cure_weight = dist(rng);
         card_progression = dist(rng);
         station_dist_penalty = dist(rng);
@@ -51,7 +51,7 @@ struct Weights {
 };
 
 // UCT Constant: controls exploration vs exploitation. 
-// 1.41 (sqrt(2)) is standard. Higher = more exploration.
+// 1.41 (sqrt(2)) is standard. Higher = more exploration. 1.41421356
 const double UCT_C = 1.41421356;
 
 struct MCTSNode {
@@ -73,7 +73,7 @@ struct MCTSNode {
         player_just_moved = (p == nullptr) ? -1 : p->state.gameFlags.GetActivePlayer();
 
         // Generate all legal moves immediately so we know what is untried
-        state.GetPossibleActions(untried_actions);
+        state.GetFilteredActions(untried_actions);
     }
 
     // Destructor to recursively clean up memory

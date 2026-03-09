@@ -13,6 +13,7 @@
 struct FitnessResult {
 	float winRate;
 	int actionCount;
+	int cureCount;
 };
 
 FitnessResult EvaluateFitness(const Weights& w, int gamesToPlay);

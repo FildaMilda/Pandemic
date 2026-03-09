@@ -165,8 +165,10 @@ struct GameState {
 		cityState.AddStation(players.GetLocation(gameFlags.GetActivePlayer()));
 	}
 
-	inline void DoOperationsExpertMovement(uint8_t cityId) {
+	inline void DoOperationsExpertMovement(uint8_t cityId, uint8_t cardId) {
 		players.SetLocation(gameFlags.GetActivePlayer(), cityId);
+		players.RemoveCard(gameFlags.GetActivePlayer(), cardId);
+		gameFlags.SetOperationsExpertMovFlag(true);
 	}
 
 	// Quarantine Specialist special passive action
@@ -200,6 +202,8 @@ struct GameState {
 
 	inline void EndTurn() {
 		if (gameFlags.GetActionsRemaining() == 0) {
+			gameFlags.SetOperationsExpertMovFlag(false);
+
 			// Draw 2 player cards
 			DrawTwoPlayerCards();
 

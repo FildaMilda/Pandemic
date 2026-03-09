@@ -591,6 +591,7 @@ void GameState::GetFilteredActions(ActionList& list) const
 	// (We want them to be evenly spread around the map)
 	if (cityState.GetStationCount() > MAX_RESEARCH_LAB_COUNT) {
 		list.Add(REMOVE_STATION, GetTheWorstStation(), currentPlayer, currentPlayer);
+		return;
 	}
 
 	// ===== Drive ====
@@ -633,7 +634,7 @@ void GameState::GetFilteredActions(ActionList& list) const
 
 				// Player can play an Event Card even if it's not their turn
 				if (CardRegistry::IsEvent(cardId)) {
-					AddEventAction(list, cardId, player_id);
+					AddFilteredEventAction(list, cardId, player_id);
 				}
 
 				// Share Knowledge
@@ -676,7 +677,7 @@ void GameState::GetFilteredActions(ActionList& list) const
 
 			// Events
 			if (CardRegistry::IsEvent(cardId)) {
-				AddEventAction(list, cardId, currentPlayer);
+				AddFilteredEventAction(list, cardId, currentPlayer);
 			}
 
 			temp_hand &= (temp_hand - 1);
@@ -772,7 +773,7 @@ void GameState::GetFilteredActions(ActionList& list) const
 	switch (players.GetRole(currentPlayer)) {
 	case Role::Contingency:
 		if (!gameFlags.IsContingencyPlannerSlotEmpty()) {
-			AddEventAction(list, gameFlags.GetContingencyPlannerSlot(), currentPlayer);
+			AddFilteredEventAction(list, gameFlags.GetContingencyPlannerSlot(), currentPlayer);
 		}
 		//TODO add the TAKE action
 		break;
@@ -1009,6 +1010,7 @@ void GameState::AddFilteredEventAction(ActionList& list, uint8_t event_card_id, 
 	// (Hotspots, Research Stations, or to other players).
 	case EventCardID::Airlift:
 	{
+		/*
 		uint64_t useful_targets = cityState.GetHotspotMask() | cityState.GetStationMask();
 
 		// Add cities with other players
@@ -1030,6 +1032,7 @@ void GameState::AddFilteredEventAction(ActionList& list, uint8_t event_card_id, 
 				player_targets &= (player_targets - 1);
 			}
 		}
+		*/
 		break;
 	}
 	}
@@ -1216,7 +1219,7 @@ void GameState::Execute(Action action)
 		break;
 
 	case EXPERT_MOVE:
-		DoOperationsExpertMovement(action.move.target_city);
+		DoOperationsExpertMovement(action.ops_expert.target_city, action.ops_expert.discard_city);
 		gameFlags.UseAction();
 		break;
 

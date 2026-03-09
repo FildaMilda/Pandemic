@@ -112,10 +112,10 @@ public:
 
 struct GameConstants {
     static constexpr uint64_t COLOR_MASKS[4] = {
-        0x0000000000000FFF, // Blue cities are IDs 0-11
-        0x0000000000FFF000, // Yellow cities are IDs 12-23
-        0x000000FFF0000000, // Black cities are IDs 24-35
-        0x000FFF0000000000  // Red cities are IDs 36-47
+        0xFFFULL << 0,  // Blue cities are IDs 0-11
+        0xFFFULL << 12, // Yellow cities are IDs 12-23
+        0xFFFULL << 24, // Black cities are IDs 24-35
+        0xFFFULL << 36  // Red cities are IDs 36-47
     };
 };
 

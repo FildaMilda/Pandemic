@@ -37,15 +37,15 @@ struct MapData {
 
     static inline uint8_t GetDistanceToNearest(uint8_t city_id, uint64_t bitmask) {
         // Already at the location
-        if ((bitmask >> city_id) & 1ULL) return 0;
+        //if ((bitmask >> city_id) & 1ULL) return 0;
 
         uint8_t minDistance = 255;
         uint64_t temp_mask = bitmask;
 
         while (temp_mask > 0) {
-            int stationCityId = std::countr_zero(temp_mask);
+            int CityId = std::countr_zero(temp_mask);
 
-            uint8_t d = MapData::GetDistance(city_id, (uint8_t)stationCityId);
+            uint8_t d = MapData::GetDistance(city_id, (uint8_t)CityId);
             if (d < minDistance) minDistance = d;
 
             temp_mask &= (temp_mask - 1);

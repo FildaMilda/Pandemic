@@ -5,9 +5,11 @@ FitnessResult EvaluateFitness(const Weights& w, int gamesToPlay)
 {
     int wins = 0;
     int totalActions = 0;
+    int totalCures = 0;
+    GameResult result;
 
     for (int i = 0; i < gamesToPlay; ++i) {
-        GameResult result = PlayGameMCTS(
+        result = PlayGameMCTS(
             Difficulty::INTRO,
             4,
             i,
@@ -18,8 +20,9 @@ FitnessResult EvaluateFitness(const Weights& w, int gamesToPlay)
         if (result.finalState == State::AllCured) wins++;
     }
 
-    // Fitness is primarily Win Rate, secondary is how long they survived
-    return FitnessResult{ (float)wins / gamesToPlay, totalActions};
+    totalCures = result.state.gameFlags.IsCured(ColorType::BLACK) + result.state.gameFlags.IsCured(ColorType::BLUE) + result.state.gameFlags.IsCured(ColorType::RED) + result.state.gameFlags.IsCured(ColorType::YELLOW);
+
+    return FitnessResult{ (float)wins / gamesToPlay, totalActions, totalCures};
 }
 
 void EvolveWeights() {
@@ -106,9 +109,19 @@ void EvolveWeightsParallel() {
 
         // Sort indices based on fitness (Win Rate first, then Actions)
         std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+            // 1. Check Win Rate
             if (fitnessResults[a].winRate != fitnessResults[b].winRate) {
                 return fitnessResults[a].winRate > fitnessResults[b].winRate;
             }
+
+            // 2. Win Rates are tied, check Total Cures
+            if (fitnessResults[a].cureCount != fitnessResults[b].cureCount) {
+                return fitnessResults[a].cureCount > fitnessResults[b].cureCount;
+            }
+
+            // 3. Cures are tied, check Action Count
+            // Returning 'true' means 'a' comes before 'b'.
+            // If you want the one with FEWER actions to be "better", use <
             return fitnessResults[a].actionCount > fitnessResults[b].actionCount;
             });
 
