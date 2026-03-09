@@ -61,7 +61,7 @@ struct GameFlags {
     inline void SetOperationsExpertMovFlag(bool isUsed) {
         operations_expert_movement_used = isUsed;
     }
-    inline bool GetOperationsExpertMovFlag() const {
+    inline bool HasOpsExpertUsedFlight() const {
         return operations_expert_movement_used;
     }
 

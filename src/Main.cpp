@@ -10,84 +10,28 @@
 
 int main()
 {
-    EvolveWeightsParallel();
-    //std::cout << (int)PlayGameMCTS(Difficulty::INTRO, 4, 42, Weights()) << "\n";
-
-    /*
     std::random_device rd;
-    std::mt19937 realRng(71);
+    std::mt19937 realRng(42);
 
     CardRegistry cards;
     cards.Initialize();
      
-    GameState state; 
-    state.Setup(&realRng);
-    */
+    GameState player_state; 
+    player_state.Setup(Difficulty::INTRO, 4, &realRng);
+    
+    GameState ai_state;
+    ai_state.Setup(Difficulty::INTRO, 4, &realRng);
 
-    /*
-    ActionList legalMoves;
+    ActionList player_actions;
+    ActionList ai_actions;
 
-    while (state.currentState == State::InProgress) {
-        state.decks.player_deck.Print();
-        state.decks.infection_deck.Print();
-        state.players.Print();
-        state.cityState.Print();
+    while (player_state.currentState == State::InProgress && ai_state.currentState == State::InProgress) {
+        player_state.GetPossibleActions(player_actions);
+        ai_state.GetFilteredActions(ai_actions);
 
-        state.GetPossibleActions(legalMoves);
-        legalMoves.Print();
+        std::cout << "Player: " << player_actions.count << " AI: " << ai_actions.count << "\n";
 
-        std::uniform_int_distribution<int> dist(0, legalMoves.count-1);
-        int random_number = dist(realRng);
-
-        Action action = legalMoves.Get(random_number);
-        std::cout << "Action taken (idx: " << random_number << "): ";
-        action.Print();
-        state.Execute(action);
+        player_state.Execute(player_actions.Get(0));
+        ai_state.Execute(ai_actions.Get(0));
     }
-
-    std::cout << "Game Ended, reason: " << (int)state.currentState;
-    */
-
-    /*
-    for (int i = 0; i < 10000; i++) {
-        std::mt19937 realRng(i);
-
-        CardRegistry cards;
-        cards.Initialize();
-
-        GameState state;
-        state.Setup(&realRng);
-        ActionList legalMoves;
-
-        while (state.currentState == State::InProgress) {
-            state.GetPossibleActions(legalMoves);
-
-            std::uniform_int_distribution<int> dist(0, legalMoves.count - 1);
-            int random_number = dist(realRng);
-
-            Action action = legalMoves.Get(random_number);
-            state.Execute(action);
-        }
-
-        std::cout << "Game Ended (" << i << "), reason: " << (int)state.currentState << "\n";
-    }
-    */
-
-    /*
-    int action_count = 0;
-    while (state.currentState == State::InProgress) {
-        // 2. Think! (Run 1000 simulations)
-        // The higher the number, the smarter (and slower) it gets.
-        Action bestMove = MCTS::GetBestMove(state, 10000);
-
-        // 3. Execute
-        std::cout << "[" << action_count << "]" << " MCTS Chose: ";
-        bestMove.Print();
-        state.Execute(bestMove);
-        action_count++;
-    }
-
-    int i = 0;
-    std::cout << "Game Ended (" << i << "), reason: " << (int)state.currentState << "\n";
-    */
 }

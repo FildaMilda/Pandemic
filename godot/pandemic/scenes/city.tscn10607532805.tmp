@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://cv258ff1wurf5"]
+[gd_scene load_steps=12 format=3 uid="uid://cv258ff1wurf5"]
 
 [ext_resource type="Script" uid="uid://hihqb7yad2ad" path="res://scripts/city_node.gd" id="1_hpa3k"]
 [ext_resource type="Texture2D" uid="uid://c8mhlrnircnwc" path="res://assets/images/disease/red.png" id="2_m7k8b"]
@@ -6,7 +6,6 @@
 [ext_resource type="Texture2D" uid="uid://dia0k4sy0hofj" path="res://assets/images/disease/yellow_t.png" id="3_2jj31"]
 [ext_resource type="Texture2D" uid="uid://gekb1mubdp8x" path="res://assets/images/disease/black_t.png" id="4_drx7m"]
 [ext_resource type="PackedScene" uid="uid://cajtfjdb3017" path="res://scenes/disease_counter.tscn" id="6_2jj31"]
-[ext_resource type="FontFile" uid="uid://bar81ya5yhoej" path="res://assets/Oswald-Medium.ttf" id="6_drx7m"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_m7k8b"]
 radius = 13.441801
@@ -16,7 +15,7 @@ content_margin_left = 0.0
 content_margin_top = 0.0
 content_margin_right = 0.0
 content_margin_bottom = 0.0
-bg_color = Color(0.7176471, 0.16470589, 0.19607843, 1)
+bg_color = Color(0.60491294, 0.038040824, 0.024136031, 1)
 corner_radius_top_left = 1024
 corner_radius_top_right = 1024
 corner_radius_bottom_right = 1024
@@ -27,7 +26,7 @@ content_margin_left = 0.0
 content_margin_top = 0.0
 content_margin_right = 0.0
 content_margin_bottom = 0.0
-bg_color = Color(0.13333334, 0.3529412, 0.5529412, 1)
+bg_color = Color(0.16512394, 0.26697996, 0.7087271, 1)
 corner_radius_top_left = 1024
 corner_radius_top_right = 1024
 corner_radius_bottom_right = 1024
@@ -38,7 +37,7 @@ content_margin_left = 0.0
 content_margin_top = 0.0
 content_margin_right = 0.0
 content_margin_bottom = 0.0
-bg_color = Color(0.22352941, 0.22352941, 0.22352941, 1)
+bg_color = Color(0.28485027, 0.2848503, 0.28485018, 1)
 corner_radius_top_left = 1024
 corner_radius_top_right = 1024
 corner_radius_bottom_right = 1024
@@ -49,7 +48,7 @@ content_margin_left = 0.0
 content_margin_top = 0.0
 content_margin_right = 0.0
 content_margin_bottom = 0.0
-bg_color = Color(0.88235295, 0.69803923, 0.23529412, 1)
+bg_color = Color(0.85836923, 0.77689916, 0, 1)
 corner_radius_top_left = 1024
 corner_radius_top_right = 1024
 corner_radius_bottom_right = 1024
@@ -76,7 +75,6 @@ offset_right = 40.0
 offset_bottom = 23.0
 grow_horizontal = 2
 theme_override_constants/outline_size = 6
-theme_override_fonts/font = ExtResource("6_drx7m")
 theme_override_font_sizes/font_size = 11
 text = "City Name"
 horizontal_alignment = 1
@@ -85,6 +83,7 @@ vertical_alignment = 1
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, 34)
 shape = SubResource("CircleShape2D_m7k8b")
+disabled = true
 debug_color = Color(1, 1, 1, 0.41960785)
 
 [node name="DiseaseCounters" type="Node2D" parent="."]
@@ -96,6 +95,7 @@ offset_right = 55.0
 offset_bottom = 61.0
 scale = Vector2(0.35, 0.35)
 theme_override_styles/panel = SubResource("StyleBoxFlat_2jj31")
+count = 0
 
 [node name="Blue" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]
 offset_left = 15.0
@@ -104,6 +104,7 @@ offset_right = 55.0
 offset_bottom = 76.0
 scale = Vector2(0.35, 0.35)
 theme_override_styles/panel = SubResource("StyleBoxFlat_drx7m")
+count = 0
 
 [node name="Black" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]
 offset_left = -31.000004
@@ -112,6 +113,7 @@ offset_right = 8.999996
 offset_bottom = 60.0
 scale = Vector2(0.35, 0.35)
 theme_override_styles/panel = SubResource("StyleBoxFlat_8uhr2")
+count = 0
 
 [node name="Yellow" parent="DiseaseCounters" instance=ExtResource("6_2jj31")]
 offset_left = -31.0
@@ -120,17 +122,4 @@ offset_right = 9.0
 offset_bottom = 75.0
 scale = Vector2(0.35, 0.35)
 theme_override_styles/panel = SubResource("StyleBoxFlat_3br4m")
-
-[node name="PlayerPositions" type="Node2D" parent="."]
-
-[node name="P1" type="Marker2D" parent="PlayerPositions"]
-position = Vector2(-7, 27)
-
-[node name="P2" type="Marker2D" parent="PlayerPositions"]
-position = Vector2(7, 27)
-
-[node name="P3" type="Marker2D" parent="PlayerPositions"]
-position = Vector2(-7, 42)
-
-[node name="P4" type="Marker2D" parent="PlayerPositions"]
-position = Vector2(7, 42)
+count = 0

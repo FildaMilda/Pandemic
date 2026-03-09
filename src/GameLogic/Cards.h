@@ -36,25 +36,25 @@ public:
 
         // Blue cities
         for (int i = 0; i < NUMBER_OF_CITIES_PER_COLOR; i++) {
-            registry[card_index] = { BLUE_CITIES[i], TYPE_CITY, card_index, BLUE };
+            registry[card_index] = { BLUE_CITIES[i], TYPE_CITY, card_index, ColorType::BLUE };
             card_index++;
         }
 
         // Yellow cities
         for (int i = 0; i < NUMBER_OF_CITIES_PER_COLOR; i++) {
-            registry[card_index] = { YELLOW_CITIES[i], TYPE_CITY, card_index, YELLOW };
+            registry[card_index] = { YELLOW_CITIES[i], TYPE_CITY, card_index, ColorType::YELLOW };
             card_index++;
         }
 
         // Black cities
         for (int i = 0; i < NUMBER_OF_CITIES_PER_COLOR; i++) {
-            registry[card_index] = { BLACK_CITIES[i], TYPE_CITY, card_index, BLACK };
+            registry[card_index] = { BLACK_CITIES[i], TYPE_CITY, card_index, ColorType::BLACK };
             card_index++;
         }
 
         // Red cities
         for (int i = 0; i < NUMBER_OF_CITIES_PER_COLOR; i++) {
-            registry[card_index] = { RED_CITIES[i], TYPE_CITY, card_index, RED };
+            registry[card_index] = { RED_CITIES[i], TYPE_CITY, card_index, ColorType::RED };
             card_index++;
         }
 
@@ -101,6 +101,10 @@ public:
 
     static const uint8_t GetEpidemicCardID() {
         return PLAYER_DECK_SIZE; // last card
+    }
+
+    static const CardType GetType(uint8_t cardId) {
+        return registry[cardId].type;
     }
 
     static const void DebugPrint();

@@ -2,6 +2,7 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
+#include <bit>
 
 using namespace godot;
 
@@ -22,10 +23,19 @@ void PandemicGame::_bind_methods() {
     // --- Player Data ---
     ClassDB::bind_method(D_METHOD("get_player_location", "player_id"), &PandemicGame::get_player_location);
     ClassDB::bind_method(D_METHOD("get_player_hand", "player_id"), &PandemicGame::get_player_hand);
+    ClassDB::bind_method(D_METHOD("get_player_count"), &PandemicGame::get_player_count);
+    ClassDB::bind_method(D_METHOD("get_player_role", "player_id"), &PandemicGame::get_player_role);
+    ClassDB::bind_method(D_METHOD("get_current_player"), &PandemicGame::get_current_player);
 
     // --- Map Data ---
     ClassDB::bind_method(D_METHOD("get_city_infection", "city_id", "color_id"), &PandemicGame::get_city_infection);
     ClassDB::bind_method(D_METHOD("has_research_station", "city_id"), &PandemicGame::has_research_station);
+
+    ClassDB::bind_method(D_METHOD("get_card_type", "card_id"), &PandemicGame::get_card_type);
+    ClassDB::bind_method(D_METHOD("get_card_name", "card_id"), &PandemicGame::get_card_name);
+    ClassDB::bind_method(D_METHOD("get_card_color", "card_id"), &PandemicGame::get_card_color);
+
+    ClassDB::bind_method(D_METHOD("get_city_neighbors", "city_id"), &PandemicGame::get_city_neighbors);
 }
 
 PandemicGame::PandemicGame() {}
@@ -68,7 +78,16 @@ int PandemicGame::get_player_location(int player_id) {
 
 Array godot::PandemicGame::get_player_hand(int player_id)
 {
-    return Array();
+    uint64_t temp_hand = game.players.hands[game.gameFlags.GetActivePlayer()];
+    Array hand_array;
+
+    while (temp_hand > 0) {
+        uint8_t cardId = std::countr_zero(temp_hand);
+        hand_array.append(cardId);
+        temp_hand &= (temp_hand - 1);
+    }
+
+    return hand_array;
 }
 
 int PandemicGame::get_city_infection(int city_id, int color_id) {
@@ -89,10 +108,67 @@ int PandemicGame::get_actions_left() {
     return (int)game.gameFlags.GetActionsRemaining();
 }
 
+int godot::PandemicGame::get_player_count()
+{
+    return (int)game.players.count;
+}
+
+int godot::PandemicGame::get_player_role(int player_id)
+{
+    return (int)game.players.GetRole(player_id);
+}
+
+int godot::PandemicGame::get_current_player()
+{
+    return (int)game.gameFlags.GetActivePlayer();
+}
+
+int godot::PandemicGame::get_card_type(int card_id)
+{
+    return (int)CardRegistry::GetType(card_id);
+}
+
+String godot::PandemicGame::get_card_name(int card_id)
+{
+    return String(CardRegistry::GetName(card_id).c_str());
+}
+
+int godot::PandemicGame::get_card_color(int card_id)
+{
+    return (int)CardRegistry::GetColor(card_id);
+}
+
+Array godot::PandemicGame::get_city_neighbors(int city_id)
+{
+    Array neighbors;
+
+    if (city_id < 0 || city_id >= NUMBER_OF_CITIES) {
+        return neighbors;
+    }
+
+    const uint8_t* neighbor_ptr = MapData::GetNeighbors(static_cast<uint8_t>(city_id));
+
+    // Iterate through the fixed size of 8
+    for (int i = 0; i < 8; ++i) {
+        uint8_t neighbor_id = neighbor_ptr[i];
+
+        // 255 is your 'null' marker. Stop adding if we hit it.
+        if (neighbor_id == 255) {
+            break;
+        }
+
+        neighbors.append(neighbor_id);
+    }
+
+    return neighbors;
+}
+
 void initialize_pandemic_module(ModuleInitializationLevel p_level) {
     if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
         return;
     }
+
+    CardRegistry::Initialize();
 
     ClassDB::register_class<PandemicGame>();
 }

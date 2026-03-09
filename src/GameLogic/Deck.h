@@ -99,12 +99,6 @@ struct StackDeck {
         return bottomCard;
     }
 
-    // Just look, don't touch (For Forecast / Contingency Planner)
-    inline uint8_t Peek(int depth = 0) const {
-        if (top_index <= depth) return 255;
-        return cards[top_index - 1 - depth];
-    }
-
     inline int Count() const { return top_index; }
 
     // Shuffles ONLY the current Draw Pile (0 to top_index)
@@ -278,6 +272,23 @@ struct InfectionDeck : public StackDeck<INFECTION_DECK_SIZE> {
         // 5. Reset the discard pointer (the discard pile is now completely empty)
         discard_index = INFECTION_DECK_SIZE;
     }
+
+    inline int PeekForecastCards(uint8_t out_cards[6]) const {
+        int num_cards = std::min((int)top_index, 6);
+
+        // 1. Fill the array with the top cards
+        for (int i = 0; i < num_cards; i++) {
+            out_cards[i] = cards[top_index - 1 - i];
+        }
+
+        // 2. Pad any remaining slots with 255
+        for (int i = num_cards; i < 6; i++) {
+            out_cards[i] = 255;
+        }
+
+        return num_cards;
+    }
+
 };
 
 struct Decks {

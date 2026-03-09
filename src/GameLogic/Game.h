@@ -110,6 +110,8 @@ struct GameState {
 		RemoveEventCard(executing_player_id, (uint8_t)EventCardID::Forecast);
 	}
 
+	void DoForecastSmart(uint8_t executing_player_id);
+
 	inline void DoResilientPopulation(uint8_t executing_player_id, uint8_t cardId) {
 		decks.infection_deck.RemoveFromDiscardPile(cardId);
 		RemoveEventCard(executing_player_id, (uint8_t)EventCardID::ResilientPopulation);
@@ -268,12 +270,18 @@ struct GameState {
 	}
 
 	void GetPossibleActions(ActionList& list) const;
+	void GetFilteredActions(ActionList& list) const;
 	void AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
 	void AddDispatcherActions(ActionList& list) const;
 	void AddOpsExpertActions(ActionList& list) const;
+	void AddFilteredDispatcherActions(ActionList& list) const;
+	void AddFilteredOpsExpertActions(ActionList& list) const;
+	void AddFilteredEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
 
 	void Execute(Action action);
 	void HandleOutbreak(uint8_t city_id, ColorType color);
+
+	uint8_t GetTheWorstStation() const;
 };
 
 #endif

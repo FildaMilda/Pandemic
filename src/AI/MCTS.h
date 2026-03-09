@@ -207,7 +207,7 @@ private:
         thread_local std::mt19937 tls_rng(std::random_device{}());
 
         while (tempState.currentState == State::InProgress && depth < MAX_DEPTH) {
-            tempState.GetPossibleActions(moves);
+            tempState.GetFilteredActions(moves);
 
             if (moves.count == 0) break; // Stalemate / Stuck
 

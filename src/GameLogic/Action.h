@@ -47,8 +47,8 @@ struct Action {
         struct {
             uint32_t type : 5;
             uint32_t target_city : 6;
-            uint32_t player_id : 2;
-            uint32_t player_id2 : 2;
+            uint32_t executing_player_id : 2;
+            uint32_t target_player_id : 2;
             uint32_t _unused : 17;
         } move;
 
@@ -100,8 +100,8 @@ struct Action {
             uint32_t type : 5;
             uint32_t target_city : 6;
             uint32_t discard_city : 6;
-            uint32_t player_id : 2;
-            uint8_t player_id2 : 2;
+            uint32_t executing_player_id : 2;
+            uint32_t target_player_id : 2;
             uint32_t _unused : 11;
         } ops_expert;
 
@@ -143,12 +143,12 @@ struct ActionList {
     }
 
     // (1) ACTION TYPE (move)
-    inline void Add(uint8_t type, uint8_t city_id, uint8_t player_id, uint8_t player_id2) {
+    inline void Add(uint8_t type, uint8_t city_id, uint8_t executing_player_id, uint8_t target_player_id) {
         if (count < SIZE) {
             actions[count].move.type = type;
             actions[count].move.target_city = city_id;
-            actions[count].move.player_id = player_id;
-            actions[count].move.player_id2 = player_id2;
+            actions[count].move.executing_player_id = executing_player_id;
+            actions[count].move.target_player_id = target_player_id;
             count++;
         }
     }
@@ -191,13 +191,13 @@ struct ActionList {
     }
 
     // (5) ACTION TYPE (ops expert)
-    inline void Add(uint8_t type, uint8_t target_card_id, uint8_t discard_card_id, uint8_t player_id, uint8_t player_id2) {
+    inline void Add(uint8_t type, uint8_t target_card_id, uint8_t discard_card_id, uint8_t executing_player_id, uint8_t target_player_id) {
         if (count < SIZE) {
             actions[count].ops_expert.type = type;
             actions[count].ops_expert.target_city = target_card_id;
             actions[count].ops_expert.discard_city = discard_card_id;
-            actions[count].ops_expert.player_id = player_id;
-            actions[count].ops_expert.player_id2 = player_id2;
+            actions[count].ops_expert.executing_player_id = executing_player_id;
+            actions[count].ops_expert.target_player_id = target_player_id;
             count++;
         }
     }

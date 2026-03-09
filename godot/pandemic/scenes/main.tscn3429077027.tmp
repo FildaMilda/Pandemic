@@ -1,16 +1,12 @@
-[gd_scene load_steps=7 format=3 uid="uid://nerd13cm7nlb"]
+[gd_scene load_steps=5 format=3 uid="uid://nerd13cm7nlb"]
 
 [ext_resource type="Texture2D" uid="uid://r426o0r1r42m" path="res://assets/map.jpg" id="1_0wfyh"]
 [ext_resource type="Script" uid="uid://cppd8jvgpomhe" path="res://scripts/main.gd" id="1_sugp2"]
 [ext_resource type="PackedScene" uid="uid://cv258ff1wurf5" path="res://scenes/city.tscn" id="2_sugp2"]
 [ext_resource type="Script" uid="uid://dsm2ynnhf2dpi" path="res://scripts/camera_2d.gd" id="3_jyhfs"]
-[ext_resource type="PackedScene" uid="uid://bh646kvwov5kd" path="res://scenes/action_menu.tscn" id="5_tbgi4"]
-[ext_resource type="PackedScene" uid="uid://k5iiathxgrpc" path="res://scenes/card_hud.tscn" id="6_tefeu"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_sugp2")
-
-[node name="PandemicGame" type="PandemicGame" parent="."]
 
 [node name="Map" type="Sprite2D" parent="."]
 position = Vector2(661, 264)
@@ -19,309 +15,235 @@ texture = ExtResource("1_0wfyh")
 metadata/_edit_lock_ = true
 
 [node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(600, 300)
-limit_left = -191
-limit_top = -240
-limit_right = 1517
-limit_bottom = 768
 position_smoothing_enabled = true
-editor_draw_limits = true
 script = ExtResource("3_jyhfs")
 
-[node name="Players" type="Node2D" parent="."]
-
 [node name="Cities" type="Node" parent="."]
+
+[node name="Essen" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(650, 50)
+city_name = "Essen"
+
+[node name="San Francisco" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(87, 200)
+city_name = "San Francisco"
 
 [node name="Atlanta" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(218, 221)
 city_name = "Atlanta"
 
-[node name="San Francisco" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(87, 200)
-city_name = "San Francisco"
-city_id = 1
-
 [node name="Chicago" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(165, 156)
 city_name = "Chicago"
-city_id = 2
 
 [node name="Montreal" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(265, 139)
 city_name = "Montreal"
-city_id = 3
-
-[node name="New York" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(340, 160)
-city_name = "New York"
-city_id = 4
 
 [node name="Washington" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(317, 228)
 city_name = "Washington"
-city_id = 5
+
+[node name="New York" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(340, 160)
+city_name = "New York"
 
 [node name="London" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(553, 87)
 city_name = "London"
-city_id = 6
 
 [node name="Madrid" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(558, 191)
 city_name = "Madrid"
-city_id = 7
 
 [node name="Paris" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(621, 139)
 city_name = "Paris"
-city_id = 8
 
-[node name="Essen" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(650, 50)
-city_name = "Essen"
-city_id = 9
+[node name="St_ Petersburg" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(767, 56)
+city_name = "St. Petersburg"
 
 [node name="Milan" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(689, 162)
 city_name = "Milan"
-city_id = 10
-
-[node name="Saint Petersburg" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(767, 56)
-city_name = "Saint Petersburg"
-city_id = 11
 
 [node name="Los Angeles" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(127, 273)
 city_name = "Los Angeles"
-city_id = 12
 color_type = 1
 
 [node name="Mexico City" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(195, 301)
 city_name = "Mexico City"
-city_id = 13
 color_type = 1
 
 [node name="Miami" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(291, 296)
 city_name = "Miami"
-city_id = 14
 color_type = 1
 
 [node name="Bogota" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(305, 375)
 city_name = "Bogota"
-city_id = 15
 color_type = 1
 
 [node name="Lima" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(280, 439)
 city_name = "Lima"
-city_id = 16
 color_type = 1
 
 [node name="Santiago" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(293, 569)
 city_name = "Santiago"
-city_id = 17
 color_type = 1
 
 [node name="Buenos Aires" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(378, 538)
 city_name = "Buenos Aires"
-city_id = 18
 color_type = 1
 
 [node name="Sao Paulo" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(426, 463)
 city_name = "Sao Paulo"
-city_id = 19
 color_type = 1
 
 [node name="Lagos" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(592, 350)
+position = Vector2(610, 344)
 city_name = "Lagos"
-city_id = 20
 color_type = 1
 
 [node name="Khartoum" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(715, 348)
 city_name = "Khartoum"
-city_id = 21
 color_type = 1
 
 [node name="Kinshasa" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(657, 422)
 city_name = "Kinshasa"
-city_id = 22
 color_type = 1
 
 [node name="Johannesburg" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(702, 514)
 city_name = "Johannesburg"
-city_id = 23
 color_type = 1
 
 [node name="Algiers" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(577, 261)
 city_name = "Algiers"
-city_id = 24
-color_type = 2
-
-[node name="Cairo" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(679, 264)
-city_name = "Cairo"
-city_id = 25
 color_type = 2
 
 [node name="Istanbul" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(753, 202)
 city_name = "Istanbul"
-city_id = 26
 color_type = 2
 
-[node name="Riyadh" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(773, 289)
-city_name = "Riyadh"
-city_id = 27
-color_type = 2
-
-[node name="Moscow" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(825, 112)
-city_name = "Moscow"
-city_id = 28
+[node name="Cairo" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(679, 264)
+city_name = "Cairo"
 color_type = 2
 
 [node name="Baghdad" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(817, 227)
 city_name = "Baghdad"
-city_id = 29
 color_type = 2
 
-[node name="Tehran" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(884, 175)
-city_name = "Tehran"
-city_id = 30
+[node name="Riyadh" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(773, 289)
+city_name = "Riyadh"
 color_type = 2
 
 [node name="Karachi" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(885, 262)
 city_name = "Karachi"
-city_id = 31
-color_type = 2
-
-[node name="Delhi" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(948, 201)
-city_name = "Delhi"
-city_id = 32
 color_type = 2
 
 [node name="Mumbai" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(888, 337)
 city_name = "Mumbai"
-city_id = 33
-color_type = 2
-
-[node name="Kolhata" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(977, 278)
-city_name = "Kolkata"
-city_id = 34
 color_type = 2
 
 [node name="Chennai" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(960, 360)
 city_name = "Chennai"
-city_id = 35
 color_type = 2
 
-[node name="Beijing" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1094, 140)
-city_name = "Beijing"
-city_id = 36
-color_type = 3
+[node name="Moscow" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(825, 112)
+city_name = "Moscow"
+color_type = 2
 
-[node name="Shanghai" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1038, 195)
-city_name = "Shanghai"
-city_id = 37
-color_type = 3
+[node name="Tehran" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(884, 175)
+city_name = "Tehran"
+color_type = 2
 
-[node name="Seoul" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1136, 206)
-city_name = "Seoul"
-city_id = 38
-color_type = 3
+[node name="Delhi" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(948, 201)
+city_name = "Delhi"
+color_type = 2
 
-[node name="Tokyo" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1231, 194)
-city_name = "Tokyo"
-city_id = 39
-color_type = 3
-
-[node name="Osaka" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1214, 267)
-city_name = "Osaka"
-city_id = 40
-color_type = 3
-
-[node name="Taipei" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1150, 290)
-city_name = "Taipei"
-city_id = 41
-color_type = 3
+[node name="Kolhata" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(977, 278)
+city_name = "Kolkata"
+color_type = 2
 
 [node name="Hong Kong" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(1076, 271)
 city_name = "Hong Kong"
-city_id = 42
 color_type = 3
 
 [node name="Bangkok" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(1041, 344)
 city_name = "Bangkok"
-city_id = 43
 color_type = 3
 
 [node name="Jakarta" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(991, 438)
 city_name = "Jakarta"
-city_id = 44
-color_type = 3
-
-[node name="Manila" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1162, 363)
-city_name = "Manila"
-city_id = 45
-color_type = 3
-
-[node name="Sydney" parent="Cities" instance=ExtResource("2_sugp2")]
-position = Vector2(1207, 519)
-city_name = "Sydney"
-city_id = 46
 color_type = 3
 
 [node name="Ho Chi Minh City" parent="Cities" instance=ExtResource("2_sugp2")]
 position = Vector2(1082, 421)
 city_name = "Ho Chi Minh City"
-city_id = 47
 color_type = 3
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="Sydney" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1207, 519)
+city_name = "Sydney"
+color_type = 3
 
-[node name="ActionMenu" parent="HUD" instance=ExtResource("5_tbgi4")]
-visible = false
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -190.0
-offset_top = -167.0
-offset_right = 0.0
-offset_bottom = 0.0
-grow_horizontal = 0
-grow_vertical = 0
-pivot_offset = Vector2(-20, -20)
+[node name="Manila" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1162, 363)
+city_name = "Manila"
+color_type = 3
 
-[node name="CardHUD" parent="HUD" instance=ExtResource("6_tefeu")]
+[node name="Taipei" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1150, 290)
+city_name = "Taipei"
+color_type = 3
+
+[node name="Osaka" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1214, 267)
+city_name = "Osaka"
+color_type = 3
+
+[node name="Tokyo" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1231, 194)
+city_name = "Tokyo"
+color_type = 3
+
+[node name="Seoul" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1136, 206)
+city_name = "Seoul"
+color_type = 3
+
+[node name="Shanghai" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1038, 195)
+city_name = "Shanghai"
+color_type = 3
+
+[node name="Beijing" parent="Cities" instance=ExtResource("2_sugp2")]
+position = Vector2(1094, 140)
+city_name = "Beijing"
+color_type = 3

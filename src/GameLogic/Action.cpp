@@ -11,8 +11,8 @@ void Action::Print() const
     case DISPATCHER_MOVE: case DISPATCHER_MOVE_AS:
     case AIRLIFT: case DISCARD_CARD: case GOVERNMENT_GRANT:
     case RESILIENT_POPULATION:
-        std::cout << "Player (origin): " << (int)move.player_id
-            << ", Player (target): " << (int)move.player_id2
+        std::cout << "Player (origin): " << (int)move.executing_player_id
+            << ", Player (target): " << (int)move.target_player_id
             << ", Target City/Card ID: " << (int)move.target_city;
         break;
 
@@ -44,7 +44,7 @@ void Action::Print() const
 
         // (5) OPS EXPERT LENS
     case EXPERT_MOVE:
-        std::cout << "Player: " << (int)ops_expert.player_id
+        std::cout << "Player: " << (int)ops_expert.executing_player_id
             << ", Target: " << (int)ops_expert.target_city
             << ", Discarding Card: " << (int)ops_expert.discard_city;
         break;

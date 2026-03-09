@@ -1,6 +1,6 @@
 #include "City.h"
 
-void CityState::Print() const 
+void CityState::Print() const
 {
     std::cout << "\n==================== GLOBAL CITY STATE ====================\n";
     std::cout << std::left

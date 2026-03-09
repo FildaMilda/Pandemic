@@ -1,10 +1,30 @@
-[gd_scene load_steps=2 format=3 uid="uid://cajtfjdb3017"]
+[gd_scene load_steps=4 format=3 uid="uid://cajtfjdb3017"]
 
 [ext_resource type="Script" uid="uid://bm3geackrec8c" path="res://scripts/disease_counter.gd" id="1_wppo4"]
+[ext_resource type="FontFile" uid="uid://bar81ya5yhoej" path="res://assets/Oswald-Medium.ttf" id="2_c32sx"]
 
-[node name="DiseaseCounter" type="Node2D"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hrm8w"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+corner_radius_top_left = 1024
+corner_radius_top_right = 1024
+corner_radius_bottom_right = 1024
+corner_radius_bottom_left = 1024
+
+[node name="DiseaseCounter" type="Panel"]
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hrm8w")
 script = ExtResource("1_wppo4")
 
 [node name="Label" type="Label" parent="."]
+layout_mode = 0
 offset_right = 40.0
-offset_bottom = 23.0
+offset_bottom = 40.0
+theme_override_fonts/font = ExtResource("2_c32sx")
+theme_override_font_sizes/font_size = 24
+text = "0"
+horizontal_alignment = 1
+vertical_alignment = 1

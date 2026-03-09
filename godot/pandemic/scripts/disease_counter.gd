@@ -1,18 +1,26 @@
-extends Node2D
+extends Panel
 
 @onready var label = $Label
 
-func setup(color: Color, count: int):
-	self.visible = (count > 0)
-	label.text = str(count)
-	queue_redraw() # Tells Godot to call _draw()
+@export var count: int = 0:
+	set(value):
+		count = value
+		_update_ui()
 
-func _draw():
-	# Draws a circle at (0,0) with radius 15
-	# No texture required!
-	draw_circle(Vector2.ZERO, 15, Color.BLACK) # Outline/Shadow
-	draw_circle(Vector2.ZERO, 13, self.modulate) 
+func _ready():
+	_update_ui()
 
-# In the inspector, set the Label's Horizontal and Vertical 
-# Alignment to "Center" and move its position to (-15, -15) 
-# to center it over the (0,0) draw point.
+func _update_ui():
+	# 1. Update the text
+	if label:
+		label.text = str(count)
+	
+	# 2. Hide if zero, show if not
+	if count <= 0:
+		visible = false
+	else:
+		visible = true
+
+# Function to change text from other scripts
+func set_number(val: int):
+	label.text = str(val)

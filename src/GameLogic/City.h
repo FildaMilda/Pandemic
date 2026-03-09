@@ -18,14 +18,13 @@ struct CityNode {
 
     inline uint8_t GetCubes(ColorType colorIdx) const {
         /*
-        Get cube count by Color Index (0-3)
         We use a switch because bitfields cannot be accessed via array index directly
         */
         switch (colorIdx) {
-        case BLUE:   return blue_cubes;
-        case YELLOW: return yellow_cubes;
-        case BLACK:  return black_cubes;
-        case RED:    return red_cubes;
+        case ColorType::BLUE:   return blue_cubes;
+        case ColorType::YELLOW: return yellow_cubes;
+        case ColorType::BLACK:  return black_cubes;
+        case ColorType::RED:    return red_cubes;
         default:     return 0;
         }
     }
@@ -36,16 +35,16 @@ struct CityNode {
         Returns true if an OUTBREAK would occur (count > 3)
         */
         switch (colorIdx) {
-        case BLUE:
+        case ColorType::BLUE:
             if (blue_cubes < 3) { blue_cubes++; return false; }
             return true;
-        case YELLOW:
+        case ColorType::YELLOW:
             if (yellow_cubes < 3) { yellow_cubes++; return false; }
             return true;
-        case BLACK:
+        case ColorType::BLACK:
             if (black_cubes < 3) { black_cubes++; return false; }
             return true;
-        case RED:
+        case ColorType::RED:
             if (red_cubes < 3) { red_cubes++; return false; }
             return true;
         }
@@ -54,10 +53,10 @@ struct CityNode {
 
     inline bool RemoveCube(ColorType colorIdx) {
         switch (colorIdx) {
-        case BLUE:   if (blue_cubes > 0) { blue_cubes--; return true; } break;
-        case YELLOW: if (yellow_cubes > 0) { yellow_cubes--; return true; } break;
-        case BLACK:  if (black_cubes > 0) { black_cubes--; return true; } break;
-        case RED:    if (red_cubes > 0) { red_cubes--; return true; } break;
+        case ColorType::BLUE:   if (blue_cubes > 0) { blue_cubes--; return true; } break;
+        case ColorType::YELLOW: if (yellow_cubes > 0) { yellow_cubes--; return true; } break;
+        case ColorType::BLACK:  if (black_cubes > 0) { black_cubes--; return true; } break;
+        case ColorType::RED:    if (red_cubes > 0) { red_cubes--; return true; } break;
         }
         return false;
     }
@@ -65,10 +64,10 @@ struct CityNode {
     inline uint8_t RemoveAllCubes(ColorType colorIdx) {
         uint8_t removed = 0;
         switch (colorIdx) {
-        case BLUE:   removed = blue_cubes; blue_cubes = 0; break;
-        case YELLOW: removed = yellow_cubes; yellow_cubes = 0; break;
-        case BLACK:  removed = black_cubes; black_cubes = 0; break;
-        case RED:    removed = red_cubes; red_cubes = 0; break;
+        case ColorType::BLUE:   removed = blue_cubes; blue_cubes = 0; break;
+        case ColorType::YELLOW: removed = yellow_cubes; yellow_cubes = 0; break;
+        case ColorType::BLACK:  removed = black_cubes; black_cubes = 0; break;
+        case ColorType::RED:    removed = red_cubes; red_cubes = 0; break;
         }
         return removed;
     }
@@ -144,12 +143,20 @@ struct CityState {
         return station_mask;
     }
 
+    inline uint64_t GetHotspotMask() const {
+        return hotspot_mask;
+    }
+
     inline uint8_t GetStationCount() const {
         return std::popcount(station_mask);
     }
 
     inline uint8_t GetHotspotCount() const {
         return std::popcount(hotspot_mask);
+    }
+
+    inline bool HasHotspot(uint8_t city_id) const {
+        return (hotspot_mask & (1ULL << city_id)) != 0;
     }
 
     inline void SetOutbroken(uint8_t cityId) {
@@ -175,6 +182,11 @@ struct CityState {
 
     inline uint8_t GetCubeCount(uint8_t city_id, ColorType color) const {
         return cities[city_id].GetCubes(color);
+    }
+
+    inline uint8_t GetTotalCubeCount(uint8_t city_id) const {
+        return GetCubeCount(city_id, ColorType::BLACK) + GetCubeCount(city_id, ColorType::BLUE)
+            + GetCubeCount(city_id, ColorType::YELLOW) + GetCubeCount(city_id, ColorType::RED);
     }
 
     inline void UpdateHotspotBit(uint8_t cityIndex) {

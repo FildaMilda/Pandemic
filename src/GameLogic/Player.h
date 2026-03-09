@@ -86,6 +86,15 @@ struct Players {
         return (Role)roles[playerId];
     }
 
+    inline bool IsAnyPlayerAt(int cityId) const {
+        for (int i = 0; i < count; i++) {
+            if (GetLocation(i) == cityId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     inline ColorCount GetMostFrequentColor(uint8_t player_id) const {
         uint64_t hand = hands[player_id];
 
@@ -102,6 +111,24 @@ struct Players {
         }
 
         return { maxCount, bestColor };
+    }
+
+    inline ColorCount GetLeastFrequentColor(uint8_t player_id) const {
+        uint64_t hand = hands[player_id];
+
+        int minCount = 100;
+        ColorType bestColor = ColorType::NO_COLOR;
+
+        for (int i = 0; i < 4; ++i) {
+            int currentCount = std::popcount(hand & GameConstants::COLOR_MASKS[i]);
+
+            if (currentCount < minCount) {
+                minCount = currentCount;
+                bestColor = (ColorType)(i);
+            }
+        }
+
+        return { minCount, bestColor };
     }
 
     void Print() const;
