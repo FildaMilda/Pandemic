@@ -2,6 +2,7 @@
 #define MCTS_H
 
 #include "Game.h"
+#include "Eval.h"
 
 #include <vector>
 #include <cmath>
@@ -9,46 +10,6 @@
 #include <iostream>
 #include <algorithm>
 #include <cstdint>
-
-struct Weights {
-    float cure_weight = 0.4f;
-    float card_progression = 0.01f;
-    float station_dist_penalty = 0.01f;
-    float outbreak_penalty = 1.0f;
-    float hotspot_penalty = 0.05f;
-    float cube_pressure = 1.5f;
-    float deck_progress_penalty = 1.0f;
-
-    void Randomize(std::mt19937& rng) {
-        std::uniform_real_distribution<float> dist(0.0f, 3.0f);
-        cure_weight = dist(rng);
-        card_progression = dist(rng);
-        station_dist_penalty = dist(rng);
-        outbreak_penalty = dist(rng);
-        hotspot_penalty = dist(rng);
-        cube_pressure = dist(rng);
-        deck_progress_penalty = dist(rng);
-    }
-
-    // Mutate weights slightly
-    inline void Mutate(float rate, std::mt19937& rng) {
-        std::uniform_real_distribution<float> dist(-rate, rate);
-        cure_weight += dist(rng);
-        card_progression += dist(rng);
-        outbreak_penalty += dist(rng);
-        hotspot_penalty += dist(rng);
-        cube_pressure += dist(rng);
-        deck_progress_penalty += dist(rng);
-        station_dist_penalty += dist(rng);
-
-        // Ensure weights stay positive/sensible
-        // cure_weight = std::max(0.01f, cure_weight);
-    }
-
-    inline void Print() const {
-        std::cout << "Cure: " << cure_weight << "\nCard: " << card_progression << "\nOutbreak: " << outbreak_penalty << "\nHotspot: " << hotspot_penalty << "\nCube: " << cube_pressure << "\nStation dist: " << station_dist_penalty << "\nDeck progress: " << deck_progress_penalty << "\n";
-    }
-};
 
 // UCT Constant: controls exploration vs exploitation. 
 // 1.41 (sqrt(2)) is standard. Higher = more exploration. 1.41421356
@@ -64,7 +25,7 @@ struct MCTSNode {
 
     int visits;
     double score;                   // Cumulative score (Win = 1, Loss = 0)
-    int player_just_moved;          // Who made the move to get here
+    int player_just_moved;          // Who made the move to get here 
 
     // Constructor
     MCTSNode(const GameState& s, MCTSNode* p, Action a)
@@ -222,58 +183,12 @@ private:
             depth++;
         }
 
-        return EvaluateState(tempState, weights);
+        return CalculateHeuristicScore(tempState, weights);
     }
 
     // Heuristic Evaluation
     static double EvaluateState(const GameState& state, const Weights& weights) {
-        if (state.currentState == State::AllCured) return 1.0;
-
-        double score = 0.0;
-        uint8_t activePlayer = state.gameFlags.GetActivePlayer();
-        uint8_t activePlayerLocation = state.players.GetLocation(activePlayer);
-
-        // ===== Positive =====
-        // Cured diseases are huge progress
-        score += state.gameFlags.GetCuredCount() * weights.cure_weight;
-
-        // Its better if players has 4 of the same colored cards
-        // than if he has 4 different colored cards (because of the cure discover)
-        for (int i = 0; i < state.players.count; ++i) {
-            ColorCount res = state.players.GetMostFrequentColor(i);
-            if (!state.gameFlags.IsCured(res.color)) {
-                score += (res.count * res.count) * weights.card_progression;
-
-                int threshold = (state.players.GetRole(i) == Role::Scientist) ? CURE_CARD_COUNT-1 : CURE_CARD_COUNT;
-                if (res.count >= threshold) {
-                    int dist = state.cityState.GetDistanceToNearestStation(state.players.GetLocation(i));
-                    score += (1.0 / (dist + 1.0)) * weights.station_dist_penalty;
-                }
-            }
-        }
-
-        // Go towards hotspots
-
-
-        // ===== Negative =====
-        // Penalize outbreaks
-        score -= std::pow(state.gameFlags.GetOutbreaks() / 8.0, 3) * weights.outbreak_penalty;
-
-        // Penalize cubes
-        float cubePressure = 0;
-        for (int c = 0; c < 4; ++c) {
-            float count = state.cityState.GetTotalCubeCount((ColorType)c);
-            cubePressure += std::pow(count / MAX_NUMBER_OF_CUBES_PER_COLOR, 2);
-        }
-        score -= (cubePressure / 4.0) * weights.cube_pressure;
-
-        // Penalize player deck
-        score -= (NUMBER_OF_UNIQUE_CARDS - state.decks.player_deck.Count()) / NUMBER_OF_UNIQUE_CARDS * weights.deck_progress_penalty;
-
-        // Penalize hotspots
-        score -= state.cityState.GetHotspotCount() * weights.hotspot_penalty;
-
-        return std::clamp(score, -1.0, 1.0);
+        return 0.0;
     }
 
     // --- STEP 4: BACKPROPAGATE ---

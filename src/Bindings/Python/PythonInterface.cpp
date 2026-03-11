@@ -2,6 +2,12 @@
 
 using namespace pybind11::literals;
 
+PandemicEnv PandemicEnv::Clone()
+{
+    PandemicEnv copy = *this;
+    return copy;
+}
+
 py::array_t<float> PandemicEnv::Reset()
 {
 	state.Setup(Difficulty::INTRO, 4, &rng);
@@ -10,45 +16,61 @@ py::array_t<float> PandemicEnv::Reset()
 
 std::pair<float, bool> PandemicEnv::Step(int actionIndex)
 {
-    float scoreBefore = CalculateHeuristicScore();
-
-    // 2. Execute Action
     Action action = ActionDecoder::GetActionFromIndex(actionIndex, state);
+
     state.Execute(action);
+    //action.Print();
 
-    // 3. Calculate Score AFTER move
-    float scoreAfter = CalculateHeuristicScore();
+    bool done = state.currentState != State::InProgress;
+    float reward = 0.0f;
 
-    // 4. The Reward is the IMPROVEMENT
-    float reward = scoreAfter - scoreBefore;
+    if (done) {
+        reward = state.currentState == State::AllCured ? 1.0f : -1.0f;
+    }
+    else {
+        reward = GetScore();
+    }
 
-    // 5. Huge Bonus for Winning / Penalty for Losing
-    if (state.currentState == State::AllCured) reward += 100.0f;
-    if (state.currentState != State::AllCured || state.currentState != State::InProgress) reward -= 10.0f;
-
-    // 6. Tiny time penalty (encourage speed)
-    reward -= 0.01f;
-
-    bool done = (state.currentState != State::InProgress);
     return { reward, done };
 }
 
 py::array_t<bool> PandemicEnv::GetValidMask()
 {
-    
+    // Use the actual total count defined in your ActionRanges
+    int size = ActionRanges::COUNT;
+
     ActionList legalMoves;
     state.GetPossibleActions(legalMoves);
 
-    // Create a numpy array of size 324 filled with False
-    auto result = py::array_t<bool>(324);
-    py::buffer_info buf = result.request();
+    // Explicitly create the array with the correct shape
+    auto result = py::array_t<bool>({ size });
+    auto buf = result.request();
     bool* ptr = static_cast<bool*>(buf.ptr);
-    std::fill(ptr, ptr + 324, false);
 
-    // Fill in the True values
+    // Initialize everything to false (0)
+    std::fill(ptr, ptr + size, false);
+
+    bool atLeastOneValid = false;
+
     for (int i = 0; i < legalMoves.count; i++) {
         int idx = ActionDecoder::GetIndexFromAction(legalMoves.Get(i));
-        if (idx >= 0 && idx < 324) ptr[idx] = true;
+
+        // BUG FIX: Added logging if the decoder returns an out-of-bounds index
+        if (idx >= 0 && idx < size) {
+            ptr[idx] = true;
+            atLeastOneValid = true;
+        }
+        else {
+            // This is how you catch the bug where an action is "legal" 
+            // but your Decoder doesn't know how to map it yet!
+            py::print("WARNING: Legal action has no valid index! Index:", idx);
+        }
+    }
+
+    // CRITICAL: If no moves are valid, the AI will crash Python's np.random.choice.
+    // We should never have 0 legal moves in Pandemic unless the game is over.
+    if (!atLeastOneValid && state.currentState == State::InProgress) {
+        py::print("CRITICAL: No legal moves found for an active game state!");
     }
 
     return result;
@@ -56,163 +78,77 @@ py::array_t<bool> PandemicEnv::GetValidMask()
 
 py::array_t<float> PandemicEnv::GetTensor()
 {
-    auto result = py::array_t<float>(783);
-    py::buffer_info buf = result.request();
-    float* ptr = static_cast<float*>(buf.ptr);
-
-    int idx = 0;
-
-    // 1. City Data (48 cities * 5 features = 240 floats)
-    // Normalized cube counts and station presence
-    for (int i = 0; i < NUMBER_OF_CITIES; i++) {
-        ptr[idx++] = state.cityState.GetDiseaseCount(i, BLACK) / 3.0f;
-        ptr[idx++] = state.cityState.GetDiseaseCount(i, BLUE) / 3.0f;
-        ptr[idx++] = state.cityState.GetDiseaseCount(i, RED) / 3.0f;
-        ptr[idx++] = state.cityState.GetDiseaseCount(i, YELLOW) / 3.0f;
-        ptr[idx++] = state.cityState.HasStation(i) ? 1.0f : 0.0f;
-    }
-
-    // 2. Player Locations (4 players * 48 cities = 192 floats)
-    // One-hot encoding: 1.0 if player is at city, 0.0 otherwise.
-    for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
-        int playerLoc = -1;
-
-        // Only get location if this player actually exists in the current game
-        if (p < state.players.count) {
-            playerLoc = state.players.GetLocation(p);
-        }
-
-        for (int c = 0; c < NUMBER_OF_CITIES; c++) {
-            ptr[idx++] = (playerLoc == c) ? 1.0f : 0.0f;
-        }
-    }
-
-    // 3. Player Hands (Total Cards * 4 Players = 212 floats)
-    // One-hot: Does Player P hold Card C?
-    int total_cards = NUMBER_OF_CITY_CARDS + NUMBER_OF_EVENT_CARDS;
-
-    for (int cardId = 0; cardId < total_cards; cardId++) {
-        for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
-            bool hasCard = false;
-
-            if (p < state.players.count) {
-                hasCard = state.players.HasCard(p, cardId);
-            }
-            ptr[idx++] = hasCard ? 1.0f : 0.0f;
-        }
-    }
-
-    // 4. Player Roles (4 players * 7 roles = 28 floats)
-    // One-hot encoding of the Role Enum
-    for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
-        int role = -1;
-        if (p < state.players.count) {
-            role = (int)state.players.GetRole(p);
-        }
-
-        for (int r = 0; r < NUMBER_OF_ROLE_CARDS; r++) {
-            ptr[idx++] = (role == r) ? 1.0f : 0.0f;
-        }
-    }
-
-    // 5. Global State (10 floats)
-
-    // a) Infection Rate (Normalized 0.0 to 1.0)
-    // Max index is 6 (rates: 2,2,2,3,3,4,4)
-    ptr[idx++] = state.gameFlags.GetInfectionRateIndex() / 6.0f;
-
-    // b) Outbreaks (Normalized 0.0 to 1.0)
-    // Max outbreaks is 8
-    ptr[idx++] = state.gameFlags.GetOutbreaks() / 8.0f;
-
-    // c) Cured Status (4 floats)
-    ptr[idx++] = state.gameFlags.IsCured(BLACK) ? 1.0f : 0.0f;
-    ptr[idx++] = state.gameFlags.IsCured(BLUE) ? 1.0f : 0.0f;
-    ptr[idx++] = state.gameFlags.IsCured(RED) ? 1.0f : 0.0f;
-    ptr[idx++] = state.gameFlags.IsCured(YELLOW) ? 1.0f : 0.0f;
-
-    // d) Eradicated Status (4 floats)
-    ptr[idx++] = state.gameFlags.IsEradicated(BLACK) ? 1.0f : 0.0f;
-    ptr[idx++] = state.gameFlags.IsEradicated(BLUE) ? 1.0f : 0.0f;
-    ptr[idx++] = state.gameFlags.IsEradicated(RED) ? 1.0f : 0.0f;
-    ptr[idx++] = state.gameFlags.IsEradicated(YELLOW) ? 1.0f : 0.0f;
-
-    // 6. Infection Discard Pile (48 floats)
-    // Bitmap: 1.0 if the city card is in the infection discard pile (danger of intensifying!)
-
-    // First, map the discard pile to a temporary bool array for O(1) lookup
-    bool isInInfectionDiscard[NUMBER_OF_CITIES] = { false };
-
-    // Iterate the deck range
-    for (uint8_t cardId : state.decks.infection_deck.GetDiscardPile()) {
-        if (cardId < NUMBER_OF_CITIES) {
-            isInInfectionDiscard[cardId] = true;
-        }
-    }
-
-    for (int c = 0; c < NUMBER_OF_CITIES; c++) {
-        ptr[idx++] = isInInfectionDiscard[c] ? 1.0f : 0.0f;
-    }
-
-    // 7. Player Discard Pile (53 floats)
-    // We need to know exactly which cards are gone.
-
-    // A. Track specific unique cards (Cities + Events)
-    int total_unique_cards = NUMBER_OF_CITY_CARDS + NUMBER_OF_EVENT_CARDS;
-    std::vector<bool> isDiscarded(total_unique_cards, false);
-
-    // Iterate the Player Discard Pile
-    for (uint8_t cardId : state.decks.player_deck.GetDiscardPile()) {
-        if (CardRegistry::IsEpidemic(cardId)) {
-        }
-        else if (cardId < total_unique_cards) {
-            isDiscarded[cardId] = true;
-        }
-    }
-
-    // Append Bitmap to Tensor
-    for (int i = 0; i < total_unique_cards; i++) {
-        ptr[idx++] = isDiscarded[i] ? 1.0f : 0.0f;
-    }
-
-    return result;
+    std::vector<float> obs = state.ToTensor();
+    return py::array_t<float>(obs.size(), obs.data());
 }
 
-float PandemicEnv::CalculateHeuristicScore()
+py::array_t<float> PandemicEnv::RunMCTS(int iterations, py::object model)
 {
-    float score = 0.0f;
+    std::vector<float> pi = MCTS_NN::RunSearch(this->state, iterations, model);
+    return py::array_t<float>(pi.size(), pi.data());
+}
 
-    // 1. Curing diseases is the Goal (Big points!)
-    if (state.gameFlags.IsCured(BLACK)) score += 10.0f;
-    if (state.gameFlags.IsCured(BLUE))  score += 10.0f;
-    if (state.gameFlags.IsCured(RED))   score += 10.0f;
-    if (state.gameFlags.IsCured(YELLOW)) score += 10.0f;
+py::dict PandemicEnv::GetGameInfo()
+{
+    py::dict info;
 
-    // 2. Eradicating is even better (Bonus)
-    if (state.gameFlags.IsEradicated(BLACK)) score += 2.0f;
-    // ... repeat for others ...
+    // 1. Game Status
+    std::string status = "InProgress";
+    if (state.currentState == State::AllCured) status = "Win_AllCured";
+    else if (state.currentState == State::OutbreakMarkerMaxed) status = "Loss_Outbreaks";
+    else if (state.currentState == State::NotEnoughPlayerCards) status = "Loss_DeckEmpty";
+    else if (state.currentState == State::NoMoreDiseaseCubes) status = "Loss_CubesEmpty";
 
-    // 3. Treating cubes is good (Small points)
-    // We want to penalize having cubes on the board.
-    int totalCubes = 0;
-    for (int i = 0; i < ColorType::COUNT; i++) {
-        totalCubes += state.cityState.GetTotalCubeCount((ColorType)i);
+    info["status"] = status;
+
+    // 2. Progression Metrics
+    info["outbreaks"] = (int)state.gameFlags.outbreak_counter;
+    info["infection_rate_idx"] = (int)state.gameFlags.infection_rate_idx;
+
+    // 3. Diseases Cured
+    py::list cured_list;
+    if (state.gameFlags.IsCured(ColorType::BLUE)) cured_list.append("Blue");
+    if (state.gameFlags.IsCured(ColorType::YELLOW)) cured_list.append("Yellow");
+    if (state.gameFlags.IsCured(ColorType::BLACK)) cured_list.append("Black");
+    if (state.gameFlags.IsCured(ColorType::RED)) cured_list.append("Red");
+    info["cured_diseases"] = cured_list;
+    info["cured_count"] = state.gameFlags.GetCuredCount();
+
+    // 4. Roles in Play
+    py::list roles_list;
+    for (int i = 0; i < state.players.count; ++i) {
+        uint8_t role_id = state.players.roles[i];
+        roles_list.append(role_id);
     }
-    score -= (totalCubes * 0.1f); // -0.1 per cube on board
+    info["player_roles"] = roles_list;
 
-    // 4. Outbreaks are bad!
-    score -= (state.gameFlags.GetOutbreaks() * 2.0f);
+    return info;
+}
 
-    return score;
+float PandemicEnv::GetScore()
+{
+    return CalculateHeuristicScore(state, Weights());
 }
 
 PYBIND11_MODULE(pandemic_cpp, m) {
     m.doc() = "Optimized C++ Pandemic Engine for RL";
+
+    static bool initialized = false;
+    if (!initialized) {
+        CardRegistry cards;
+        cards.Initialize();
+
+        MapData::PrecomputeDistances();
+
+        initialized = true;
+    }
 
     py::class_<PandemicEnv>(m, "PandemicEnv")
         .def(py::init<int>(), "seed"_a = 42)
         .def("reset", &PandemicEnv::Reset)
         .def("step", &PandemicEnv::Step)
         .def("get_tensor", &PandemicEnv::GetTensor)
-        .def("get_valid_mask", &PandemicEnv::GetValidMask);
+        .def("get_valid_mask", &PandemicEnv::GetValidMask)
+        .def("run_mcts", &PandemicEnv::RunMCTS)
+        .def("get_info", &PandemicEnv::GetGameInfo);
 }

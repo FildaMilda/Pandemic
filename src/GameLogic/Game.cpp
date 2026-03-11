@@ -448,13 +448,11 @@ void GameState::GetPossibleActions(ActionList& list) const
 		break;
 
 	case Role::Dispatcher:
-		list.Add(DISPATCHER_MOVE);
-		//AddDispatcherActions(list);
+		AddDispatcherActions(list);
 		break;
 
 	case Role::Operations:
-		list.Add(EXPERT_MOVE);
-		//AddOpsExpertActions(list);
+		AddOpsExpertActions(list);
 		break;
 	}
 }
@@ -828,30 +826,96 @@ void GameState::AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t 
 
 void GameState::AddDispatcherActions(ActionList& list) const
 {
-	// The Dispatcher may, as an action, either:
-	
-	// Move any pawn, to any city
-	// containing another pawn
-	for (int player_a = 0; player_a < players.count; player_a++) {
-		for (int player_b = 0; player_b < players.count; player_b++) {
-			if (player_a == player_b) continue;
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
 
-			// Moving player A to player B
-			list.Add(DISPATCHER_MOVE,
-				players.GetLocation(player_b),
-				gameFlags.GetActivePlayer(),
-				player_a
-			);
+	// ABILITY 1: Teleport any pawn to another pawn
+	for (int pawn_to_move = 0; pawn_to_move < players.count; pawn_to_move++) {
+		uint8_t start_city = players.GetLocation(pawn_to_move);
+
+		for (int target_pawn = 0; target_pawn < players.count; target_pawn++) {
+			if (pawn_to_move == target_pawn) continue;
+
+			uint8_t dest_city = players.GetLocation(target_pawn);
+
+			// Only add if they aren't already in the same city
+			if (start_city != dest_city) {
+				list.Add(DISPATCHER_MOVE, dest_city, currentPlayer, pawn_to_move);
+			}
 		}
 	}
 
-	// Move another player’s pawn,
-	// as if it were his own
-	// TODO
+	// ABILITY 2: Move another pawn as your own
+	for (int pawn_to_move = 0; pawn_to_move < players.count; pawn_to_move++) {
+		if (pawn_to_move == currentPlayer) continue; // Handled by normal movement logic
+
+		uint8_t pawn_loc = players.GetLocation(pawn_to_move);
+
+		// 2A. DRIVE
+		const uint8_t* neighbors = MapData::GetNeighbors(pawn_loc);
+		while (*neighbors != 255) {
+			list.Add(DRIVE, *neighbors, pawn_to_move, currentPlayer);
+			neighbors++;
+		}
+
+		// 2B. SHUTTLE FLIGHT
+		if (cityState.HasStation(pawn_loc)) {
+			uint64_t stations = cityState.GetStationMask() & ~(1ULL << pawn_loc);
+			while (stations > 0) {
+				list.Add(SHUTTLE_FLIGHT, std::countr_zero(stations), pawn_to_move, currentPlayer);
+				stations &= (stations - 1);
+			}
+		}
+
+		// 2C. FLIGHTS (Using the Dispatcher's Hand)
+		uint64_t temp_hand = players.hands[currentPlayer];
+
+		while (temp_hand > 0) {
+			uint8_t cardId = std::countr_zero(temp_hand);
+
+			if (!CardRegistry::IsEvent(cardId)) {
+				// DIRECT FLIGHT: Dispatcher discards 'cardId' to move pawn to 'cardId'
+				if (cardId != pawn_loc) 
+					list.Add(DIRECT_FLIGHT, cardId, pawn_to_move, currentPlayer);
+
+				// CHARTER FLIGHT: Dispatcher discards card matching pawn's current location
+				if (cardId == pawn_loc) {
+					for (uint8_t city_id = 0; city_id < NUMBER_OF_CITIES; city_id++) {
+						if (city_id != pawn_loc)
+							list.Add(CHARTER_FLIGHT, city_id, pawn_to_move, currentPlayer);
+					}
+				}
+			}
+			temp_hand &= (temp_hand - 1);
+		}
+	}
 }
 
 void GameState::AddOpsExpertActions(ActionList& list) const {
-	// TODO
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+	uint8_t currentCity = players.GetLocation(currentPlayer);
+
+	// ABILITY 1: Free Build
+	if (!cityState.HasStation(currentCity)) {
+		list.Add(EXPERT_BUILD, currentCity, currentPlayer, currentPlayer);
+	}
+
+	// ABILITY 2: Special Flight (Once per turn)
+	if (cityState.HasStation(currentCity) &&
+		players.GetHandSize(currentPlayer) > 0 &&
+		!gameFlags.HasOpsExpertUsedFlight())
+	{
+		uint64_t temp_hand = players.hands[currentPlayer];
+
+		while (temp_hand > 0) {
+			uint8_t discard_card_id = std::countr_zero(temp_hand);
+			if (!CardRegistry::IsEvent(discard_card_id)) {
+				for (uint8_t city_id = 0; city_id < NUMBER_OF_CITIES; city_id++) {
+					list.Add(EXPERT_MOVE, city_id, discard_card_id, currentPlayer, currentPlayer);
+				}
+			}
+			temp_hand &= (temp_hand - 1);
+		}
+	}
 }
 
 void GameState::AddFilteredOpsExpertActions(ActionList& list) const
@@ -1318,4 +1382,155 @@ uint8_t GameState::GetTheWorstStation() const
 	}
 
 	return worst_station_id;
+}
+
+uint8_t GameState::GetBestCardToDiscard(uint8_t player_id) const
+{
+	uint64_t hand = players.hands[player_id];
+	if (hand == 0) return 255;
+
+	// Get the player's set collection status
+	auto mostFrequent = players.GetMostFrequentColor(player_id);
+	uint8_t requiredForCure = (players.roles[player_id] == (uint8_t)Role::Scientist) ? 4 : 5;
+
+	uint8_t best_card = 255;
+	float lowest_score = std::numeric_limits<float>::max();
+
+	while (hand > 0) {
+		int city_id = std::countr_zero(hand);
+		ColorType color = CardRegistry::GetColor(city_id);
+		float score = 0.0f;
+
+		// --- 1. SET PROTECTION LOGIC ---
+		int currentCount = players.GetColorCount(player_id, color);
+
+		if (gameFlags.IsCured(color)) {
+			// Cured cards are the best candidates to discard
+			score -= 100.0f;
+		}
+		else {
+			// Protect cards if the player is close to a cure (e.g., has 3+ cards of that color)
+			// The closer to the goal, the exponentially more we want to keep it
+			if (currentCount >= 3) {
+				score += (currentCount * 25.0f);
+			}
+
+			// Specifically protect the "Most Frequent" color even more
+			if (color == mostFrequent.color) {
+				score += 10.0f;
+			}
+		}
+
+		// --- 2. TACTICAL VALUE (CUBES) ---
+		// If a city is dangerous (3 cubes), keep the card for Direct Flight/Treat
+		int cubes = cityState.GetTotalCubeCount(city_id);
+		score += (cubes * 15.0f);
+
+		// --- 3. SELECTION ---
+		if (score < lowest_score) {
+			lowest_score = score;
+			best_card = (uint8_t)city_id;
+		}
+
+		hand &= (hand - 1);
+	}
+
+	return best_card;
+}
+
+std::vector<uint8_t> GameState::GetBestCardsForCure(uint8_t player_id, ColorType color) const
+{
+	int required = (players.roles[player_id] == (uint8_t)Role::Scientist) ? 4 : 5;
+
+	// Create a mask of the player's hand filtered by color
+	uint64_t color_hand = players.hands[player_id] & GameConstants::COLOR_MASKS[(int)color];
+
+	struct CardScore { uint8_t id; float score; };
+	std::vector<CardScore> candidates;
+	candidates.reserve(HAND_LIMIT);
+
+	while (color_hand > 0) {
+		int city_id = std::countr_zero(color_hand);
+
+		float score = 0.0f;
+		// We prefer to KEEP cards with high cube counts (for direct flights to treat)
+		score += (cityState.GetTotalCubeCount(city_id) * 10.0f);
+
+		// We prefer to KEEP cards for cities far from existing research stations
+		score += (cityState.GetDistanceToNearestStation(city_id) * 2.0f);
+
+		candidates.push_back({ (uint8_t)city_id, score });
+		color_hand &= (color_hand - 1);
+	}
+
+	// Sort: Lowest scores (safest/least useful cities) are used for the cure first
+	std::sort(candidates.begin(), candidates.end(), [](const CardScore& a, const CardScore& b) {
+		return a.score < b.score;
+		});
+
+	std::vector<uint8_t> result;
+	for (int i = 0; i < required && i < (int)candidates.size(); ++i) {
+		result.push_back(candidates[i].id);
+	}
+	return result;
+}
+
+std::vector<float> GameState::ToTensor() const
+{
+	std::vector<float> obs;
+	obs.reserve(700);
+
+	// 1. City Features (48 cities)
+	for (int city_id = 0; city_id < NUMBER_OF_CITIES; city_id++) {
+		// Disease cubes (0-3 scale to 0.0-1.0)
+		obs.push_back(cityState.GetCubeCount(city_id, ColorType::BLUE) / 3.0f);
+		obs.push_back(cityState.GetCubeCount(city_id, ColorType::YELLOW) / 3.0f);
+		obs.push_back(cityState.GetCubeCount(city_id, ColorType::BLACK) / 3.0f);
+		obs.push_back(cityState.GetCubeCount(city_id, ColorType::RED) / 3.0f);
+
+		// Research Station (Boolean)
+		obs.push_back(cityState.HasStation(city_id) ? 1.0f : 0.0f);
+	}
+
+	// 2. Player Locations (48 cities * 4 players)
+	// One-hot encoding of where each player is standing
+	for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
+		uint8_t player_location = players.GetLocation(p);
+		for (int city_id = 0; city_id < NUMBER_OF_CITIES; city_id++) {
+			obs.push_back(player_location == city_id ? 1.0f : 0.0f);
+		}
+	}
+
+	// 3. Player Hands (48 city + 5 event * 4 players)
+	// One-hot encoding of who owns which city card
+	for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
+		for (int city_id = 0; city_id < NUMBER_OF_CITIES + NUMBER_OF_EVENT_CARDS; city_id++) {
+			obs.push_back(players.HasCard(p, city_id) ? 1.0f : 0.0f);
+		}
+	}
+
+	// 4. Global Game Status (Normalized)
+	obs.push_back(gameFlags.GetInfectionRateIndex() / 6.0f); // Max index is 6
+	obs.push_back(gameFlags.GetOutbreaks() / 8.0f);           // 8 is game over
+
+	// Cures (4 bits)
+	obs.push_back(gameFlags.IsCured(ColorType::BLUE) ? 1.0f : 0.0f);
+	obs.push_back(gameFlags.IsCured(ColorType::YELLOW) ? 1.0f : 0.0f);
+	obs.push_back(gameFlags.IsCured(ColorType::BLACK) ? 1.0f : 0.0f);
+	obs.push_back(gameFlags.IsCured(ColorType::RED) ? 1.0f : 0.0f);
+
+	// 5. Current Player Identity
+	// Very important so the AI knows "Who am I right now?"
+	for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
+		obs.push_back(gameFlags.GetActivePlayer() == p ? 1.0f : 0.0f);
+	}
+
+	// Player Roles (One-hot for active player)
+	for (int p = 0; p < NUMBER_OF_MAX_PLAYERS; p++) {
+		for (int r = 0; r < NUMBER_OF_ROLE_CARDS; r++) {
+			obs.push_back((int)players.GetRole(p) == r ? 1.0f : 0.0f);
+		}
+	}
+
+	return obs;
 }

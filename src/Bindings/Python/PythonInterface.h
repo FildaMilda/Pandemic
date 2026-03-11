@@ -6,8 +6,9 @@
 #include <pybind11/stl.h>
 #include <cstdint>
 #include "Game.h" 
-#include "MCTS.h"
+#include "Eval.h"
 #include "ActionDecoder.h"
+#include "MCTS_NN.h"
 
 namespace py = pybind11;
 
@@ -20,6 +21,7 @@ public:
         state.Setup(Difficulty::INTRO, 4, &rng);
     }
 
+    PandemicEnv Clone();
     py::array_t<float> Reset();
 
     // The Step function: Takes an action Index (0-324), returns (Reward, Done)
@@ -33,8 +35,10 @@ public:
     // THE TENSORIZER: Converts C++ State -> Numpy Array
     // This runs FAST in C++, saving Python from doing millions of lookups.
     py::array_t<float> GetTensor();
+    py::array_t<float> RunMCTS(int iterations, py::object model);
+    py::dict GetGameInfo();
 
-    float CalculateHeuristicScore();
+    float GetScore();
 };
 
 #endif

@@ -74,8 +74,10 @@ struct GameState {
 		decks.player_deck.AddToDiscard(card3);
 		players.RemoveCard(gameFlags.GetActivePlayer(), card4);
 		decks.player_deck.AddToDiscard(card4);
-		players.RemoveCard(gameFlags.GetActivePlayer(), card5);
-		decks.player_deck.AddToDiscard(card5);
+		if (players.GetRole(gameFlags.GetActivePlayer()) != Role::Scientist) {
+			players.RemoveCard(gameFlags.GetActivePlayer(), card5);
+			decks.player_deck.AddToDiscard(card5);
+		}
 		gameFlags.SetCured(CardRegistry::GetColor(card1));
 	}
 	inline void DoDiscover(uint8_t card1, uint8_t card2, uint8_t card3, uint8_t card4) {
@@ -286,6 +288,10 @@ struct GameState {
 	void HandleOutbreak(uint8_t city_id, ColorType color);
 
 	uint8_t GetTheWorstStation() const;
+	uint8_t GetBestCardToDiscard(uint8_t player_id) const;
+	std::vector<uint8_t> GetBestCardsForCure(uint8_t player_id, ColorType color) const;
+
+	std::vector<float> ToTensor() const;
 };
 
 #endif

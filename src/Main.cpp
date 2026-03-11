@@ -4,6 +4,7 @@
 #include "Cards.h"
 #include "MCTS.h"
 #include "EA.h"
+#include "ActionDecoder.h"
 
 #include <fstream>
 #include <iostream>
@@ -11,12 +12,13 @@
 enum MainType {
     DebugMultipleGames,
     DebugOneGame,
-    Evolve
+    Evolve,
+    ID_ACTION_TEST,
 };
 
 int main()
 {
-    MainType type = MainType::Evolve;
+    MainType type = MainType::DebugOneGame;
 
     if (type == MainType::Evolve) {
         EvolveWeightsParallel();
@@ -29,20 +31,24 @@ int main()
 
         MapData::PrecomputeDistances();
 
-        int seed = 205;
+        int seed = 3768;
         std::mt19937 realRng(seed);
 
         GameState state;
         state.Setup(Difficulty::INTRO, 4, &realRng);
 
-        int action_count = 0;
-        while (state.currentState == State::InProgress) {
-            state.cityState.Print();
+        ActionList actions;
 
-            Action bestMove = MCTS::GetBestMove(state, 1000, Weights());
-            state.Execute(bestMove);
+        int action_count = 0;
+        
+        while (state.currentState == State::InProgress) {
+            //state.cityState.Print();
+
+            Action move = MCTS::GetBestMove(state, 1000, Weights());
+            state.Execute(move);
             action_count++;
         }
+        
 
         std::cout << std::format("Final state: {}", (int)state.currentState);
     }
@@ -107,4 +113,41 @@ int main()
         std::cout << std::format("Cubes: {}/{} ({}%)\n", cubes_loss_count, number_of_games, (float)cubes_loss_count / (float)number_of_games * 100);
         std::cout << std::format("Deck: {}/{} ({}%)\n", deck_loss_count, number_of_games, (float)deck_loss_count / (float)number_of_games * 100);
     }
+
+    if (type == ID_ACTION_TEST) {
+        int action_count = 0;
+        int index;
+        Action action;
+
+        CardRegistry cards;
+        cards.Initialize();
+
+        MapData::PrecomputeDistances();
+
+        int seed = 205;
+        std::mt19937 realRng(seed);
+
+        GameState state;
+        state.Setup(Difficulty::INTRO, 4, &realRng);
+
+        std::cout << state.ToTensor().size() << "\n";
+
+        int gov_1_id = ActionRanges::GOVERMENT_GRANT_START + 1;
+
+        while (true) {
+            action = ActionDecoder::GetActionFromIndex(action_count, state);
+            if (action.raw_data == std::numeric_limits<uint32_t>::max()) break;
+
+            index = ActionDecoder::GetIndexFromAction(action);
+
+            if (index != action_count) 
+                std::cout << std::format("From {}, we got action {} and from that, we got {}\n", action_count, action.raw_data, index);
+
+            action_count++;
+        }
+
+        std::cout << ActionRanges::COUNT << "\n";
+        std::cout << action_count;
+    }
+
 }

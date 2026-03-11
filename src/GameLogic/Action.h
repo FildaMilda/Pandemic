@@ -15,7 +15,7 @@ enum ActionType : uint8_t {
     CURE = 7,
 
     PLANNER_TAKE = 8,           // Contingency Planner taking an event card
-    DISPATCHER_MOVE = 9,       // Dispatcher moving pawn to a pawn
+    DISPATCHER_MOVE = 9,        // Dispatcher moving pawn to a pawn
     DISPATCHER_MOVE_AS = 10,    // Dispatcher moving as another player
     EXPERT_BUILD = 11,          // Building Station as Operations Expert
     EXPERT_MOVE = 12,           // Moving from research station 
@@ -29,7 +29,8 @@ enum ActionType : uint8_t {
     DISCARD_CARD = 18,
     REMOVE_STATION = 19,
 
-    END_TURN = 20
+    END_TURN = 20,
+    PLANNER_USE
 };
 
 struct Action {
@@ -119,8 +120,6 @@ struct Action {
             uint32_t _unused : 7;
         } forecast;
     };
-
-    int ToGlobalIndex() const;
 
     const char* GetActionName(uint8_t type) const;
     void Print() const;

@@ -34,15 +34,23 @@ struct GameFlags {
     uint32_t _unused : 1;
 
     void Init() {
-        *reinterpret_cast<uint32_t*>(this) = 0;
+        outbreak_counter = 0;
+        infection_rate_idx = 0;
 
-        is_medic_in_game = 0;
-        medic_id = 0;
+        active_player_idx = 0;
         actions_remaining = 4;
-        contingency_planner_slot = 8; // MAX = EMPTY
+
+        cured_bits = 0;
+        eradicated_bits = 0;
+
+        one_quiet_night = 0;
+
+        contingency_planner_slot = 7; // MAX = EMPTY
         operations_expert_movement_used = false;
         is_quarantine_specialist_in_game = false;
         quarantine_specialist_id = 0;
+        is_medic_in_game = 0;
+        medic_id = 0;
     }
 
     inline void SetContingencyPlannerSlot(uint8_t cardId) {

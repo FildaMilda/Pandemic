@@ -16,10 +16,12 @@ __pycache__/
 *.pdb
 *.ilk
 
-Scripts/*.pyd
-Scripts/*.so
+scripts/*.pyd
+scripts/*.so
+scripts/alphazero/runs/
+scripts/alphazero/models/
 
-!Scripts/*.py
+!scripts/*.py
 
 .godot/
 *.import

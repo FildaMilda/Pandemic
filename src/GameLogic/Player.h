@@ -29,7 +29,7 @@ struct Players {
 
     void Init(uint8_t num_players) {
         count = num_players;
-        packed_locations = 0;
+        packed_locations = 0; // All start Atlanta (index=0)
 
         for (int i = 0; i < 4; i++) {
             hands[i] = 0;
@@ -132,6 +132,21 @@ struct Players {
         }
 
         return { minCount, bestColor };
+    }
+
+    inline uint8_t GetOwnerOf(uint8_t card_id) const {
+        uint64_t card_mask = 1ULL << card_id;
+
+        for (uint8_t i = 0; i < count; ++i) {
+            if (hands[i] & card_mask) {
+                return i;
+            }
+        }
+        return 255;
+    }
+
+    inline int GetColorCount(uint8_t player_id, ColorType color) const {
+        return std::popcount(hands[player_id] & GameConstants::COLOR_MASKS[(int)color]);
     }
 
     void Print() const;

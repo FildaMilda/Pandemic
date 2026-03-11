@@ -39,10 +39,6 @@ add_executable(PandemicGame
     ${AI_SOURCES}
 )
 
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(PandemicGame PUBLIC OpenMP::OpenMP_CXX)
-endif()
-
 # Optimization flags for Executable
 if(MSVC)
     target_compile_options(PandemicGame PRIVATE 
@@ -113,6 +109,7 @@ if(MSVC)
 else()
     target_compile_options(pandemic_godot PRIVATE $<$<CONFIG:Release>:-O3 -march=native>)
 endif()
+
 
 # Automatically copy the compiled library to the Godot bin folder
 add_custom_command(TARGET pandemic_godot POST_BUILD

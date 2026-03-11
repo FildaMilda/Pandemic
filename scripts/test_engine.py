@@ -1,15 +1,17 @@
-import pandemic_cpp
+import os
 import sys
 
-print(f"Loaded module: {pandemic_cpp}")
+# Get the directory where THIS script is
+path_to_pyd = os.path.dirname(os.path.abspath(__file__))
 
-# 2. Check the Environment
-# (Pass a seed, e.g., 42, to the constructor)
-env = pandemic_cpp.PandemicEnv(42)
+# EXPLICITLY tell Windows to allow loading DLLs from this folder
+if os.name == 'nt':
+    os.add_dll_directory(path_to_pyd)
 
-# 3. Get the Initial State Tensor
-state = env.reset()
-
-print(f"Initial State Tensor Shape: {state.shape}")
-print(f"First 10 values: {state}")
-print("SUCCESS: C++ Engine is talking to Python!")
+try:
+    import pandemic_cpp
+    print("SUCCESS: Module imported!")
+    env = pandemic_cpp.PandemicEnv(42)
+    print("SUCCESS: Env created!")
+except ImportError as e:
+    print(f"FAILURE: {e}")
