@@ -48,5 +48,6 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
     // Penalize hotspots
     score -= state.cityState.GetHotspotCount() * weights.hotspot_penalty;
 
-    return std::clamp(score, -1.0, 1.0);
+    double final_score = std::tanh(score * 0.5);
+    return std::clamp(final_score, -0.95, 0.95);
 }

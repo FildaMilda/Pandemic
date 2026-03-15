@@ -16,7 +16,7 @@ import model
 BATCH_SIZE = 128
 LEARNING_RATE = 0.001
 MEMORY_SIZE = 25000
-MCTS_ITERATIONS = 500
+MCTS_ITERATIONS = 100
 
 class Trainer:
     def __init__(self):
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     for iteration in range(1000):
         # 1. Generate Experience
         print("Playing games...")
-        trainer.execute_self_play(num_games=50, iteration=iteration)
+        trainer.execute_self_play(num_games=20, iteration=iteration)
         
         # 2. Learn from Experience
         print("Learning from games...")
