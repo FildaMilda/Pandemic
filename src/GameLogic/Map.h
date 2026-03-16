@@ -108,6 +108,18 @@ struct MapData {
         return minDistance;
     }
 
+    static inline uint64_t GetNeighborsMask(uint8_t cityId) {
+        uint64_t mask = 0;
+        int count = neighbor_counts[cityId];
+        const uint8_t* neighbors = adjacency[cityId];
+
+        for (int i = 0; i < count; i++) {
+            mask |= (1ULL << neighbors[i]);
+        }
+
+        return mask;
+    }
+
     static void PrecomputeDistances();
 };
 

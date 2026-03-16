@@ -19,7 +19,7 @@ GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const W
 
     int action_count = 0;
     while (state.currentState == State::InProgress) {
-        Action bestMove = MCTS::GetBestMove(state, 100000, weights);
+        Action bestMove = MCTS::GetBestMove(state, 10000, weights);
         state.Execute(bestMove);
         action_count++;
     }

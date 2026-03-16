@@ -14,16 +14,13 @@ enum MainType {
     DebugOneGame,
     Evolve,
     ID_ACTION_TEST,
+    MCTS_PLAY,
+    EAOneSeed
 };
 
 int main()
 {
-    MainType type = MainType::DebugOneGame;
-
-    if (type == MainType::Evolve) {
-        EvolveWeightsParallel();
-    }
-
+    MainType type = MainType::EAOneSeed;
 
     if (type == MainType::DebugOneGame) {
         CardRegistry cards;
@@ -150,4 +147,12 @@ int main()
         std::cout << action_count;
     }
 
+    if (type == MCTS_PLAY) {
+        auto res = PlayGameMCTS(Difficulty::INTRO, 4, 42, Weights());
+        std::cout << "Final state: " << (int)res.finalState << " Action count: " << res.actionCount << "\n";
+    }
+
+    if (type == EAOneSeed) {
+        EvolveWeightsForSeed(Difficulty::INTRO, 4, 42, 10000, 50);
+    }
 }

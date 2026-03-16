@@ -5,6 +5,8 @@
 #include <iostream>
 #include <bit>
 #include <string>
+#include <array>
+
 #include "Globals.h"
 #include "Cards.h"
 

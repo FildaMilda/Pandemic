@@ -32,8 +32,8 @@ TOTAL_GAMES_TO_PLAY = 20000
 SYNC_INTERVAL = 5 # How often (in games) the GPU updates the CPU actors
 
 # MCTS Scaling
-MCTS_MIN = 100
-MCTS_MAX = 100
+MCTS_MIN = 1000
+MCTS_MAX = 1000
 
 # Evaluation
 EVAL_INTERVAL = 5000

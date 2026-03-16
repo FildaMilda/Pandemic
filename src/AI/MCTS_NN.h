@@ -61,7 +61,7 @@ public:
                 // --- NEW: Generate Valid Mask in C++ ---
                 int size = ActionRanges::COUNT;
                 ActionList legalMoves;
-                node->state.GetPossibleActions(legalMoves);
+                node->state.GetFilteredActions(legalMoves);
 
                 auto mask_array = py::array_t<bool>({ size });
                 auto buf = mask_array.request();
@@ -124,7 +124,7 @@ private:
 
     static void ExpandNode(MCTSNodeNN* node, py::array_t<float>& policy_probs) {
         ActionList legalActions;
-        node->state.GetPossibleActions(legalActions);
+        node->state.GetFilteredActions(legalActions);
 
         auto r = policy_probs.unchecked<1>();
 

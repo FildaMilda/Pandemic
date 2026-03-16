@@ -10,14 +10,7 @@
 #include <execution>
 #include <cstdint>
 
-struct FitnessResult {
-	float winRate;
-	int actionCount;
-	int cureCount;
-};
-
-FitnessResult EvaluateFitness(const Weights& w, int gamesToPlay);
-void EvolveWeights();
-void EvolveWeightsParallel();
+Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_seed, int generations, int pop_size);
+float EvaluateFitness(const GameResult& result);
 
 #endif

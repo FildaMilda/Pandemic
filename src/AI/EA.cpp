@@ -1,156 +1,108 @@
 #include "EA.h"
 #include <omp.h>
 
-FitnessResult EvaluateFitness(const Weights& w, int gamesToPlay)
-{
-    int wins = 0;
-    int totalActions = 0;
-    int totalCures = 0;
-    GameResult result;
-
-    for (int i = 0; i < gamesToPlay; ++i) {
-        result = PlayGameMCTS(
-            Difficulty::INTRO,
-            4,
-            i,
-            w
-        );
-        totalActions += result.actionCount;
-
-        if (result.finalState == State::AllCured) wins++;
+float EvaluateFitness(const GameResult& result) {
+    // If we won, massive score. Subtracting actionCount rewards faster, more efficient wins.
+    if (result.finalState == State::AllCured) {
+        return 10000.0f - result.actionCount;
     }
 
-    totalCures = result.state.gameFlags.IsCured(ColorType::BLACK) + result.state.gameFlags.IsCured(ColorType::BLUE) + result.state.gameFlags.IsCured(ColorType::RED) + result.state.gameFlags.IsCured(ColorType::YELLOW);
+    float fitness = 0.0f;
 
-    return FitnessResult{ (float)wins / gamesToPlay, totalActions, totalCures};
+    // Use the state to determine how close it was to winning.
+    // (Assuming these getters based on your previous state structures)
+    fitness += result.state.gameFlags.GetCuredCount() * 1000.0f;
+    fitness -= result.state.gameFlags.GetOutbreaks() * 100.0f;
+
+    // Slight penalty for high cube presence at the end of the game
+    int total_cubes = 0;
+    for (int c = 0; c < 4; ++c) {
+        total_cubes += result.state.cityState.GetTotalCubeCount((ColorType)c);
+    }
+    fitness -= total_cubes * 5.0f;
+
+    // Reward it slightly for surviving longer (more actions) before a loss
+    fitness += result.actionCount * 2.0f;
+
+    return fitness;
 }
 
-void EvolveWeights() {
-    const int POPULATION_SIZE = 20;
-    const int GENERATIONS = 50;
-    const int TOP_SURVIVORS = 5;
-    std::mt19937 rng(1337);
+Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_seed, int generations, int pop_size) {
+    std::mt19937 rng(std::random_device{}());
 
-    std::vector<Weights> population(POPULATION_SIZE);
-    for (auto& individual : population) {
-        individual.Randomize(rng);
+    struct Individual {
+        Weights weights;
+        float fitness;
+        GameResult lastResult;
+    };
+
+    std::vector<Individual> population(pop_size);
+
+    // Initialize population randomly
+    for (int i = 0; i < pop_size; ++i) {
+        population[i].weights.Mutate(2.0f, rng);
     }
-    std::vector<FitnessResult> fitness(POPULATION_SIZE);
 
-    for (int gen = 0; gen < GENERATIONS; ++gen) {
-        std::cout << "--- Generation " << gen << " ---\n";
+    std::cout << "Starting Evolution for Seed: " << target_seed << "\n";
+    std::cout << "=========================================\n";
 
-        // 1. Evaluate each individual
-        for (int i = 0; i < POPULATION_SIZE; ++i) {
-            fitness[i] = EvaluateFitness(population[i], 200);
-            std::cout << "  Individual " << i << " Win Rate: " << fitness[i].winRate << "\n";
+    for (int gen = 0; gen < generations; ++gen) {
+        // Evaluate fitness for the entire population
+        for (int i = 0; i < pop_size; ++i) {
+            // Only re-evaluate if fitness hasn't been calculated (e.g., for new mutants)
+            if (gen == 0 || i > 0) {
+                population[i].lastResult = PlayGameMCTS(diff, player_count, target_seed, population[i].weights);
+                population[i].fitness = EvaluateFitness(population[i].lastResult);
+            }
         }
 
-        // 2. Sort by fitness while keeping weights and scores linked
-        // We create an index array [0, 1, 2, ..., 19]
-        std::vector<int> indices(POPULATION_SIZE);
-        std::iota(indices.begin(), indices.end(), 0);
-
-        // SORTING LOGIC: Win rate first, then total actions
-        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-            if (fitness[a].winRate != fitness[b].winRate) {
-                return fitness[a].winRate > fitness[b].winRate;
-            }
-            return fitness[a].actionCount > fitness[b].actionCount;
+        // Sort by fitness (Descending - highest fitness first)
+        std::sort(population.begin(), population.end(), [](const Individual& a, const Individual& b) {
+            return a.fitness > b.fitness;
             });
 
-        // Reorder
-        std::vector<Weights> next_gen;
-        next_gen.reserve(POPULATION_SIZE);
+        Individual best = population[0];
 
-        // Keep the elites
-        for (int i = 0; i < TOP_SURVIVORS; ++i) {
-            next_gen.push_back(population[indices[i]]);
+        std::cout << "Gen " << gen << " | Best Fitness: " << best.fitness
+            << " | Cures: " << (int)best.lastResult.state.gameFlags.GetCuredCount()
+            << " | End State: " << (int)best.lastResult.finalState << "\n";
+
+        // Early Exit if we achieved a win
+        if (best.lastResult.finalState == State::AllCured) {
+            std::cout << "\n>>> WIN ACHIEVED IN GENERATION " << gen << " <<<\n";
+            std::cout << "Winning Weights:\n";
+            best.weights.Print();
+            return best.weights;
         }
 
-        // Fill the rest with mutated elites
-        for (int i = TOP_SURVIVORS; i < POPULATION_SIZE; ++i) {
-            Weights child = next_gen[i % TOP_SURVIVORS];
-            child.Mutate(0.05f, rng);
-            next_gen.push_back(child);
+        // Create the next generation (Elitism: Keep the best individual at index 0)
+        std::vector<Individual> next_generation(pop_size);
+        next_generation[0] = best; // Elite survives unchanged
+
+        // Fill the rest with mutated versions of the top performers
+        int tournament_size = std::max(2, pop_size / 4);
+        for (int i = 1; i < pop_size; ++i) {
+            // Pick a random top performer to act as the parent
+            std::uniform_int_distribution<int> parent_dist(0, tournament_size - 1);
+            int parent_idx = parent_dist(rng);
+
+            next_generation[i].weights = population[parent_idx].weights;
+
+            // Mutate. As generations go on, we can optionally decay the mutation rate
+            // to fine-tune the weights rather than making wild swings.
+            float current_mutation_rate = 0.5f * (1.0f - ((float)gen / generations));
+            next_generation[i].weights.Mutate(current_mutation_rate, rng);
+
+            // Ensure no negative weights if your heuristic requires them to be positive
+            next_generation[i].weights.cure_weight = std::max(0.0f, next_generation[i].weights.cure_weight);
+            next_generation[i].weights.cube_pressure = std::max(0.0f, next_generation[i].weights.cube_pressure);
+            // ... apply to other critical weights as necessary
         }
 
-        population = std::move(next_gen);
-
-        auto& best = fitness[indices[0]];
-        std::cout << "Best: WinRate " << best.winRate << " | Actions: " << best.actionCount << "\n";
-        population[indices[0]].Print();
+        population = std::move(next_generation);
     }
-}
 
-void EvolveWeightsParallel() {
-    const int POPULATION_SIZE = 20;
-    const int GENERATIONS = 50;
-    const int TOP_SURVIVORS = 5;
-    std::mt19937 rng(42);
-
-    std::vector<Weights> population(POPULATION_SIZE);
-    for (auto& individual : population) {
-        individual.Randomize(rng);
-    }
-
-    std::vector<FitnessResult> fitnessResults(POPULATION_SIZE);
-    std::vector<int> indices(POPULATION_SIZE);
-    std::iota(indices.begin(), indices.end(), 0);
-
-    for (int gen = 0; gen < GENERATIONS; ++gen) {
-        std::cout << "--- Generation " << gen << " ---\n";
-
-        // MULTI-CORE EVALUATION
-        // std::execution::par tells the compiler to run this in parallel
-        std::for_each(std::execution::par, indices.begin(), indices.end(), [&](int i) {
-            fitnessResults[i] = EvaluateFitness(population[i], 200);
-            });
-
-        // Sort indices based on fitness (Win Rate first, then Actions)
-        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-            // 1. Check Win Rate
-            if (fitnessResults[a].winRate != fitnessResults[b].winRate) {
-                return fitnessResults[a].winRate > fitnessResults[b].winRate;
-            }
-
-            // 2. Win Rates are tied, check Total Cures
-            if (fitnessResults[a].cureCount != fitnessResults[b].cureCount) {
-                return fitnessResults[a].cureCount > fitnessResults[b].cureCount;
-            }
-
-            // 3. Cures are tied, check Action Count
-            // Returning 'true' means 'a' comes before 'b'.
-            // If you want the one with FEWER actions to be "better", use <
-            return fitnessResults[a].actionCount > fitnessResults[b].actionCount;
-            });
-
-        // Prepare the next generation
-        std::vector<Weights> next_gen;
-        next_gen.reserve(POPULATION_SIZE);
-
-        // 1. Elitism: Keep the best
-        for (int i = 0; i < TOP_SURVIVORS; ++i) {
-            next_gen.push_back(population[indices[i]]);
-        }
-
-        // 2. Repopulate: Mutate the survivors
-        for (int i = TOP_SURVIVORS; i < POPULATION_SIZE; ++i) {
-            Weights child = next_gen[i % TOP_SURVIVORS];
-            child.Mutate(0.05f, rng);
-            next_gen.push_back(child);
-        }
-
-        population = std::move(next_gen);
-
-        // Logging the current best of this generation
-        auto& bestResult = fitnessResults[indices[0]];
-        std::cout << "Gen " << gen << " Best WR: " << bestResult.winRate
-            << " | Actions: " << bestResult.actionCount << "\n";
-
-        // Print the actual weight values of the current champion
-        std::cout << "Best Weights: ";
-        population[0].Print();
-        std::cout << "--------------------" << std::endl;
-    }
+    std::cout << "\nEvolution finished without a win. Returning best found weights.\n";
+    population[0].weights.Print();
+    return population[0].weights;
 }
