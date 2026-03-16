@@ -91,7 +91,8 @@ public:
     }
 
     static const std::string& GetName(uint8_t cardId) {
-        if (cardId > NUMBER_OF_UNIQUE_CARDS) return "INVALID";
+        static const std::string invalid = "INVALID";
+        if (cardId > NUMBER_OF_UNIQUE_CARDS) return invalid;
         return registry[cardId].name;
     }
 

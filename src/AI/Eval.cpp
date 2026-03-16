@@ -133,7 +133,7 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
     score -= std::pow(state.gameFlags.GetOutbreaks() / 8.0, 3) * weights.outbreak_penalty;
 
     // Penalize cubes
-    float cubePressure = 0;
+    double cubePressure = 0.0;
     for (int c = 0; c < 4; ++c) {
         float count = state.cityState.GetTotalCubeCount((ColorType)c);
         cubePressure += std::pow(count / MAX_NUMBER_OF_CUBES_PER_COLOR, 2);
@@ -164,5 +164,5 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
     score -= chainRiskCount * weights.chain_reaction_penalty;
 
     double final_score = std::tanh(score * 0.5);
-    return std::clamp(final_score, -0.95, 0.95);
+    return (float)std::clamp(final_score, -0.95, 0.95);
 }
