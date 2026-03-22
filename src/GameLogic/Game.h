@@ -28,25 +28,25 @@ struct GameState {
 	void SetRoles();
 
 	// -------Actions-------
-	inline void DoDrive(uint8_t cityId) {
-		players.SetLocation(gameFlags.GetActivePlayer(), cityId);
-		DoMedicMovementPassive(gameFlags.GetActivePlayer(), cityId);
+	inline void DoDrive(uint8_t cityId, uint8_t target_player) {
+		players.SetLocation(target_player, cityId);
+		DoMedicMovementPassive(target_player, cityId);
 	}
-	inline void DoDirectFlight(uint8_t cityId) {
-		players.SetLocation(gameFlags.GetActivePlayer(), cityId);
-		players.RemoveCard(gameFlags.GetActivePlayer(), cityId);
+	inline void DoDirectFlight(uint8_t cityId, uint8_t exec_player, uint8_t target_player) {
+		players.SetLocation(target_player, cityId);
+		players.RemoveCard(exec_player, cityId);
 		decks.player_deck.AddToDiscard(cityId);
-		DoMedicMovementPassive(gameFlags.GetActivePlayer(), cityId);
+		DoMedicMovementPassive(target_player, cityId);
 	}
-	inline void DoCharterFlight(uint8_t cityId) {
-		players.SetLocation(gameFlags.GetActivePlayer(), cityId);
-		players.RemoveCard(gameFlags.GetActivePlayer(), players.GetLocation(gameFlags.GetActivePlayer()));
+	inline void DoCharterFlight(uint8_t cityId, uint8_t exec_player, uint8_t target_player) {
+		players.SetLocation(target_player, cityId);
+		players.RemoveCard(exec_player, players.GetLocation(exec_player));
 		decks.player_deck.AddToDiscard(cityId);
-		DoMedicMovementPassive(gameFlags.GetActivePlayer(), cityId);
+		DoMedicMovementPassive(target_player, cityId);
 	}
-	inline void DoShuttleFlight(uint8_t cityId) {
-		players.SetLocation(gameFlags.GetActivePlayer(), cityId);
-		DoMedicMovementPassive(gameFlags.GetActivePlayer(), cityId);
+	inline void DoShuttleFlight(uint8_t cityId, uint8_t target_player) {
+		players.SetLocation(target_player, cityId);
+		DoMedicMovementPassive(target_player, cityId);
 	}
 
 	inline void DoBuild() {
@@ -283,6 +283,9 @@ struct GameState {
 	void AddFilteredDispatcherActions(ActionList& list) const;
 	void AddFilteredOpsExpertActions(ActionList& list) const;
 	void AddFilteredEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
+
+	void GetPolicyTurns(TurnList& list) const;
+	void Execute(Turn& turn);
 
 	void Execute(Action action);
 	void HandleOutbreak(uint8_t city_id, ColorType color);

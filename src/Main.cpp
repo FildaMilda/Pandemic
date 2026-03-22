@@ -41,7 +41,7 @@ int main()
         while (state.currentState == State::InProgress) {
             //state.cityState.Print();
 
-            Action move = MCTS::GetBestMove(state, 1000, Weights());
+            Action move = MCTS::GetBestMove(state, 1000, Weights(), true);
             state.Execute(move);
             action_count++;
         }
@@ -76,7 +76,7 @@ int main()
 
             int action_count = 0;
             while (state.currentState == State::InProgress) {
-                Action bestMove = MCTS::GetBestMove(state, 1000, Weights());
+                Action bestMove = MCTS::GetBestMove(state, 1000, Weights(), false);
                 state.Execute(bestMove);
                 action_count++;
             }
@@ -148,11 +148,11 @@ int main()
     }
 
     if (type == MCTS_PLAY) {
-        auto res = PlayGameMCTS(Difficulty::INTRO, 4, 42, Weights());
-        std::cout << "Final state: " << (int)res.finalState << " Action count: " << res.actionCount << "\n";
+        auto res = PlayGameMCTS(Difficulty::INTRO, 4, 123, Weights(), 1000000, true);
+        std::cout << "Final state: " << (int)res.finalState << " Action count: " << res.actionCount << " Cure count: " << (int)res.state.gameFlags.GetCuredCount() << "\n";
     }
 
     if (type == EAOneSeed) {
-        EvolveWeightsForSeed(Difficulty::INTRO, 4, 42, 10000, 50);
+        EvolveWeightsForSeed(Difficulty::INTRO, 4, 123, 10000, 50, 1000);
     }
 }

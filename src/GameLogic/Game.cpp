@@ -853,7 +853,7 @@ void GameState::AddDispatcherActions(ActionList& list) const
 		// 2A. DRIVE
 		const uint8_t* neighbors = MapData::GetNeighbors(pawn_loc);
 		while (*neighbors != 255) {
-			list.Add(DRIVE, *neighbors, pawn_to_move, currentPlayer);
+			list.Add(DRIVE, *neighbors, currentPlayer, pawn_to_move);
 			neighbors++;
 		}
 
@@ -861,7 +861,7 @@ void GameState::AddDispatcherActions(ActionList& list) const
 		if (cityState.HasStation(pawn_loc)) {
 			uint64_t stations = cityState.GetStationMask() & ~(1ULL << pawn_loc);
 			while (stations > 0) {
-				list.Add(SHUTTLE_FLIGHT, std::countr_zero(stations), pawn_to_move, currentPlayer);
+				list.Add(SHUTTLE_FLIGHT, std::countr_zero(stations), currentPlayer, pawn_to_move);
 				stations &= (stations - 1);
 			}
 		}
@@ -875,13 +875,13 @@ void GameState::AddDispatcherActions(ActionList& list) const
 			if (!CardRegistry::IsEvent(cardId)) {
 				// DIRECT FLIGHT: Dispatcher discards 'cardId' to move pawn to 'cardId'
 				if (cardId != pawn_loc) 
-					list.Add(DIRECT_FLIGHT, cardId, pawn_to_move, currentPlayer);
+					list.Add(DIRECT_FLIGHT, cardId, currentPlayer, pawn_to_move);
 
 				// CHARTER FLIGHT: Dispatcher discards card matching pawn's current location
 				if (cardId == pawn_loc) {
 					for (uint8_t city_id = 0; city_id < NUMBER_OF_CITIES; city_id++) {
 						if (city_id != pawn_loc)
-							list.Add(CHARTER_FLIGHT, city_id, pawn_to_move, currentPlayer);
+							list.Add(CHARTER_FLIGHT, city_id, currentPlayer, pawn_to_move);
 					}
 				}
 			}
@@ -1131,7 +1131,7 @@ void GameState::AddFilteredDispatcherActions(ActionList& list) const
 		// 2A. DRIVE (Branches: ~4 per player. Safe to leave unfiltered)
 		const uint8_t* neighbors = MapData::GetNeighbors(pawn_loc);
 		while (*neighbors != 255) {
-			list.Add(DRIVE, *neighbors, pawn_to_move, currentPlayer);
+			list.Add(DRIVE, *neighbors, currentPlayer, pawn_to_move);
 			neighbors++;
 		}
 
@@ -1139,7 +1139,7 @@ void GameState::AddFilteredDispatcherActions(ActionList& list) const
 		if (cityState.HasStation(pawn_loc)) {
 			uint64_t stations = cityState.GetStationMask() & ~(1ULL << pawn_loc);
 			while (stations > 0) {
-				list.Add(SHUTTLE_FLIGHT, std::countr_zero(stations), pawn_to_move, currentPlayer);
+				list.Add(SHUTTLE_FLIGHT, std::countr_zero(stations), currentPlayer, pawn_to_move);
 				stations &= (stations - 1);
 			}
 		}
@@ -1160,7 +1160,7 @@ void GameState::AddFilteredDispatcherActions(ActionList& list) const
 						players.IsAnyPlayerAt(cardId);
 
 					if (isUseful) {
-						list.Add(DIRECT_FLIGHT, cardId, pawn_to_move, currentPlayer);
+						list.Add(DIRECT_FLIGHT, cardId, currentPlayer, pawn_to_move);
 					}
 				}
 
@@ -1174,7 +1174,7 @@ void GameState::AddFilteredDispatcherActions(ActionList& list) const
 					target_mask &= ~(1ULL << pawn_loc); // Remove current location
 
 					while (target_mask > 0) {
-						list.Add(CHARTER_FLIGHT, std::countr_zero(target_mask), pawn_to_move, currentPlayer);
+						list.Add(CHARTER_FLIGHT, std::countr_zero(target_mask), currentPlayer, pawn_to_move);
 						target_mask &= (target_mask - 1);
 					}
 				}
@@ -1184,27 +1184,78 @@ void GameState::AddFilteredDispatcherActions(ActionList& list) const
 	}
 }
 
+void GameState::GetPolicyTurns(TurnList& list) const
+{
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+	uint8_t currentCity = players.GetLocation(currentPlayer);
+
+	// 1. Cure Disease
+	ColorType cureColor = players.GetCureColor(currentPlayer);
+	if (cureColor != ColorType::NO_COLOR) {
+		// Now we try to find the fastest way to station.
+
+		// 1.0 The city already has station
+		if (cityState.HasStation(currentCity)) {
+
+		}
+
+		// 1.1. Can we build a station in the city we are standing on
+		// by using Government Grant
+		if (players.DoPlayersHaveEventCard(EventCardID::GovGrant)) {
+
+		}
+
+		// 1.2 Can we reach it by only driving (in THIS turn).
+		if (cityState.GetDistanceToNearestStation(currentCity) < 4) {
+
+		}
+
+		// 1.3. Can we build a station in the city we are standing on.
+		// by using a card (need to check if we don't need the card for the cure)
+		if (players.HasCard(currentPlayer, currentCity) && !players.IsNeededForCure(currentPlayer, cureColor, currentCity)) {
+
+		}
+
+		// 1.4. Do we have a card we could use for Direct/Charter flight
+		if (players.CanCharter(currentPlayer)) {
+
+		}
+
+
+
+	}
+
+}
+
+void GameState::Execute(Turn& turn)
+{
+	for (const Action& action : turn) {
+		Execute(action);
+		if (currentState != State::InProgress) break;
+	}
+}
+
 void GameState::Execute(Action action)
 {
 	switch (action.base.type) {
 
 	case DRIVE:
-		DoDrive(action.move.target_city);
+		DoDrive(action.move.target_city, action.move.target_player_id);
 		gameFlags.UseAction();
 		break;
 
 	case DIRECT_FLIGHT:
-		DoDirectFlight(action.move.target_city);
+		DoDirectFlight(action.move.target_city, action.move.executing_player_id, action.move.target_player_id);
 		gameFlags.UseAction();
 		break;
 
 	case CHARTER_FLIGHT:
-		DoCharterFlight(action.move.target_city);
+		DoCharterFlight(action.move.target_city, action.move.executing_player_id, action.move.target_player_id);
 		gameFlags.UseAction();
 		break;
 
 	case SHUTTLE_FLIGHT:
-		DoShuttleFlight(action.move.target_city);
+		DoShuttleFlight(action.move.target_city, action.move.target_player_id);
 		gameFlags.UseAction();
 		break;
 

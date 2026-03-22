@@ -2,22 +2,23 @@
 #define EVAL_H
 
 #include "Game.h"
+#include <limits>
 
 struct Weights {
-    float cure_weight = 0.4f;
-    float card_progression = 0.01f;
-    float station_dist_reward = 0.05f;
-    float outbreak_penalty = 0.5f;
-    float hotspot_penalty = 0.05f;
+    float cure_weight = 1.0f;
+    float card_progression = 1.0f;
+    float station_dist_reward = 1.0f;
+    float outbreak_penalty = 1.0f;
+    float hotspot_penalty = 1.0f;
     float cube_pressure = 1.0f;
-    float deck_progress_penalty = 0.1f;
-    float hotspot_approach_weight = 0.1f;
-    float station_network_weight = 0.02f;
-    float chain_reaction_penalty = 0.1f;
+    float deck_progress_penalty = 1.0f;
+    float hotspot_approach_weight = 1.0f;
+    float station_network_weight = 1.0f;
+    float chain_reaction_penalty = 1.0f;
 
-    float researcher_meetup_weight = 0.05f;
-    float medic_treat_weight = 0.05f;
-    float qs_protect_weight = 0.08f;
+    float researcher_meetup_weight = 1.0f;
+    float medic_treat_weight = 1.0f;
+    float qs_protect_weight = 1.0f;
 
     void Randomize(std::mt19937& rng) {
         std::uniform_real_distribution<float> dist(0.0f, 3.0f);

@@ -13,7 +13,7 @@
 
 // UCT Constant: controls exploration vs exploitation. 
 // 1.41 (sqrt(2)) is standard. Higher = more exploration. 1.41421356
-const double UCT_C = 1.41421356;
+const double UCT_C = 2.0;
 
 struct MCTSNode {
     GameState state;                // The snapshot of the game at this node
@@ -58,7 +58,7 @@ struct MCTSNode {
 class MCTS {
 public:
     // THE MAIN FUNCTION: Returns the best action after N iterations
-    static Action GetBestMove(const GameState& rootState, int iterations, const Weights& weights) {
+    static Action GetBestMove(const GameState& rootState, int iterations, const Weights& weights, bool print_info) {
         // 1. Create the root node
         // Action() is a dummy "no-op" action for the root
         MCTSNode* root = new MCTSNode(rootState, nullptr, Action());
@@ -71,18 +71,18 @@ public:
             Backpropagate(child, result);
         }
 
-        /*
-        std::cout << "\n--- MCTS Stats (" << iterations << " iterations) ---\n";
-        for (MCTSNode* child : root->children) {
-            double score = (child->visits > 0) ? (child->score / child->visits) : 0.0;
+        if (print_info) {
+            std::cout << "\n--- MCTS Stats (" << iterations << " iterations) ---\n";
+            for (MCTSNode* child : root->children) {
+                double score = (child->visits > 0) ? (child->score / child->visits) : 0.0;
 
-            std::cout << "Move: ";
-            child->action_from_parent.Print();
-            std::cout << " | Visits: " << child->visits
-                << " | Score: " << (score) << "\n";
+                std::cout << "Move: ";
+                child->action_from_parent.Print();
+                std::cout << " | Visits: " << child->visits
+                    << " | Score: " << (score) << "\n";
+            }
+            std::cout << "--------------------------------\n";
         }
-        std::cout << "--------------------------------\n";
-        */
 
         // 3. Select best child (Robust Child: most visits)
         // In rigorous MCTS, you pick most visits, not highest score.

@@ -27,7 +27,7 @@ float EvaluateFitness(const GameResult& result) {
     return fitness;
 }
 
-Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_seed, int generations, int pop_size) {
+Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_seed, int generations, int pop_size, int mcts_iterations) {
     std::mt19937 rng(std::random_device{}());
 
     struct Individual {
@@ -39,8 +39,8 @@ Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_s
     std::vector<Individual> population(pop_size);
 
     // Initialize population randomly
-    for (int i = 0; i < pop_size; ++i) {
-        population[i].weights.Mutate(2.0f, rng);
+    for (int i = 1; i < pop_size; ++i) {
+        population[i].weights.Mutate(1.0f, rng);
     }
 
     std::cout << "Starting Evolution for Seed: " << target_seed << "\n";
@@ -51,7 +51,7 @@ Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_s
         for (int i = 0; i < pop_size; ++i) {
             // Only re-evaluate if fitness hasn't been calculated (e.g., for new mutants)
             if (gen == 0 || i > 0) {
-                population[i].lastResult = PlayGameMCTS(diff, player_count, target_seed, population[i].weights);
+                population[i].lastResult = PlayGameMCTS(diff, player_count, target_seed, population[i].weights, mcts_iterations, false);
                 population[i].fitness = EvaluateFitness(population[i].lastResult);
             }
         }
@@ -66,6 +66,7 @@ Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_s
         std::cout << "Gen " << gen << " | Best Fitness: " << best.fitness
             << " | Cures: " << (int)best.lastResult.state.gameFlags.GetCuredCount()
             << " | End State: " << (int)best.lastResult.finalState << "\n";
+        best.weights.Print();
 
         // Early Exit if we achieved a win
         if (best.lastResult.finalState == State::AllCured) {
@@ -90,7 +91,7 @@ Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_s
 
             // Mutate. As generations go on, we can optionally decay the mutation rate
             // to fine-tune the weights rather than making wild swings.
-            float current_mutation_rate = 0.5f * (1.0f - ((float)gen / generations));
+            float current_mutation_rate = (1.0f - ((float)gen / generations));
             next_generation[i].weights.Mutate(current_mutation_rate, rng);
 
             // Ensure no negative weights if your heuristic requires them to be positive

@@ -1,7 +1,7 @@
 #include "Assets.h"
 #include <format>
 
-GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const Weights& weights)
+GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const Weights& weights, int mcts_iterations, bool print_info)
 {
     std::mt19937 realRng(seed);
 
@@ -19,7 +19,7 @@ GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const W
 
     int action_count = 0;
     while (state.currentState == State::InProgress) {
-        Action bestMove = MCTS::GetBestMove(state, 10000, weights);
+        Action bestMove = MCTS::GetBestMove(state, mcts_iterations, weights, print_info);
         state.Execute(bestMove);
         action_count++;
     }

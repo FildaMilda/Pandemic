@@ -151,6 +151,48 @@ struct Players {
         return std::popcount(hands[player_id] & GameConstants::COLOR_MASKS[(int)color]);
     }
 
+    // Returns the color the player can cure.
+    inline ColorType GetCureColor(uint8_t player_id) const {
+        uint64_t hand = hands[player_id];
+        int threshold = (GetRole(player_id) == Role::Scientist) ? 4 : 5;
+
+        // We check all 4 colors using the masks
+        for (int i = 0; i < 4; ++i) {
+            // 1. Mask out everything except the color we are checking
+            // 2. Count the remaining set bits instantly
+            if (std::popcount(hand & GameConstants::COLOR_MASKS[i]) >= threshold) {
+                return static_cast<ColorType>(i);
+            }
+        }
+        return ColorType::NO_COLOR;
+    }
+
+    // Returns true if any of the players has the event card
+    // and is therefore usable.
+    inline bool DoPlayersHaveEventCard(uint8_t event_id) const {
+        uint64_t event_mask = 1ULL << event_id;
+        uint64_t all_hands = hands[0] | hands[1] | hands[2] | hands[3];
+        return (all_hands & event_mask) != 0;
+    }
+
+    inline bool IsNeededForCure(uint8_t player_id, ColorType color, uint8_t card_id) const {
+        if (CardRegistry::GetColor(color) != color) {
+            return false;
+        }
+
+        uint64_t hand = hands[player_id];
+        int count = std::popcount(hand & GameConstants::COLOR_MASKS[color]);
+
+        int threshold = (GetRole(player_id) == Role::Scientist) ? 4 : 5;
+
+        return count <= threshold;
+    }
+
+    inline bool CanCharter(uint8_t player_id) const {
+        uint64_t charter_mask = 1ULL << GetLocation(player_id);
+        return (hands[player_id] & charter_mask) != 0;
+    }
+
     void Print() const;
 };
 

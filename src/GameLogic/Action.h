@@ -224,4 +224,73 @@ struct ActionList {
     void Print() const; 
 };
 
+template <int MaxSize>
+struct MacroAction {
+    Action actions[MaxSize];
+    uint8_t count;
+
+    MacroAction() : count(0) {}
+
+    inline void Clear() {
+        count = 0;
+    }
+
+    inline bool IsFull() const {
+        return count >= MaxSize;
+    }
+
+    inline void Add(const Action& action) {
+        if (count < MaxSize) {
+            actions[count] = action;
+            count++;
+        }
+    }
+
+    inline const Action* begin() const { return &actions[0]; }
+    inline const Action* end() const { return &actions[count]; }
+};
+
+template <int MaxMacros, int MaxActionsPerMacro>
+struct MacroActionList {
+    MacroAction<MaxActionsPerMacro> macros[MaxMacros];
+    int count;
+
+    MacroActionList() {
+        count = 0;
+    }
+
+    inline void Clear() {
+        count = 0;
+    }
+
+    // Standard Add
+    inline void Add(const MacroAction<MaxActionsPerMacro>& macro) {
+        if (count < MaxMacros) {
+            macros[count] = macro;
+            count++;
+        }
+    }
+
+    // Hyper-Fast Add (Creates a new empty Macro directly inside the list and returns it)
+    inline MacroAction<MaxActionsPerMacro>& AddNew() {
+        if (count >= MaxMacros) {
+            // Return a dummy/safe reference if we overflow (or just assert/crash in debug)
+            return macros[MaxMacros - 1];
+        }
+
+        MacroAction<MaxActionsPerMacro>& ref = macros[count];
+        ref.Clear(); // Ensure the memory is clean
+        count++;
+
+        return ref;
+    }
+
+    inline const MacroAction<MaxActionsPerMacro>& Get(int index) const {
+        return macros[index];
+    }
+};
+
+using Turn = MacroAction<16>;
+using TurnList = MacroActionList<256, 16>;
+
 #endif

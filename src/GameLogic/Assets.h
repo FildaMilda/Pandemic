@@ -13,6 +13,6 @@ struct GameResult {
 	int actionCount;
 };
 
-GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const Weights& weights);
+GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const Weights& weights, int mcts_iterations, bool print_info);
 
 #endif

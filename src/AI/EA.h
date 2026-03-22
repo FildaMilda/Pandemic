@@ -10,7 +10,7 @@
 #include <execution>
 #include <cstdint>
 
-Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_seed, int generations, int pop_size);
+Weights EvolveWeightsForSeed(Difficulty diff, uint8_t player_count, int target_seed, int generations, int pop_size, int mcts_iterations);
 float EvaluateFitness(const GameResult& result);
 
 #endif
