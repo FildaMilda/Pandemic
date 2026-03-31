@@ -1190,15 +1190,18 @@ void GameState::GetPolicyTurns(TurnList& list) const
 	uint8_t currentCity = players.GetLocation(currentPlayer);
 
 	// 1. Cure Disease
+	// Player has enough cards to cure disease, so we cure if there is 
+	// a station in the city, or go to one (or towards).
 	ColorType cureColor = players.GetCureColor(currentPlayer);
 	if (cureColor != ColorType::NO_COLOR) {
-		// Now we try to find the fastest way to station.
-
 		// 1.0 The city already has station
 		if (cityState.HasStation(currentCity)) {
 
 		}
 
+		// TODO: need to add role specific actions
+
+		// Now we try to find the fastest way to station.
 		// 1.1. Can we build a station in the city we are standing on
 		// by using Government Grant
 		if (players.DoPlayersHaveEventCard(EventCardID::GovGrant)) {
@@ -1216,11 +1219,14 @@ void GameState::GetPolicyTurns(TurnList& list) const
 
 		}
 
-		// 1.4. Do we have a card we could use for Direct/Charter flight
+		// 1.4. We can charter flight
+		// TODO: need to check if we don't need the card for cure
 		if (players.CanCharter(currentPlayer)) {
 
 		}
 
+		// 1.5. We cannot reach the station in this turn,
+		// so we go towards the closest one.
 
 
 	}
@@ -1524,6 +1530,166 @@ std::vector<uint8_t> GameState::GetBestCardsForCure(uint8_t player_id, ColorType
 		result.push_back(candidates[i].id);
 	}
 	return result;
+}
+
+bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_events, ColorType protected_color, int protected_threshold, Turn& out_path) const
+{
+	out_path.Clear();
+	uint8_t start_city = players.GetLocation(player_id);
+
+	// Base Case
+	if (start_city == target_city) return true;
+
+	uint64_t original_hand = players.hands[player_id];
+
+	// ==========================================
+	// 0. AIRLIFT (Cost: 0 Actions)
+	// ==========================================
+	// If Airlift is allowed and in our hand, we instantly win the pathfinding.
+	if (use_events && ((original_hand >> EventCardID::Airlift) & 1ULL)) {
+		out_path.Add(AIRLIFT, target_city, player_id, player_id);
+		return true;
+	}
+
+	// --- HELPER: Can we safely discard this card? ---
+	auto CanBurnCard = [&](uint8_t card_id, uint64_t current_hand) {
+		if (!((current_hand >> card_id) & 1ULL)) return false; // Don't have it
+
+		ColorType c = CardRegistry::GetColor(card_id);
+		if (c != protected_color) return true; // Not protected, burn it!
+
+		// It is the protected color. Do we have a spare?
+		int count = std::popcount(current_hand & GameConstants::COLOR_MASKS[c]);
+		return count > protected_threshold;
+		};
+
+	// ==========================================
+	// BFS SETUP
+	// ==========================================
+	struct BFSNode {
+		uint8_t city;
+		uint8_t depth;       // Actions taken
+		uint64_t hand;       // Current cards available
+		Action path[4];      // The steps to get here
+		bool ops_flight_used;
+	};
+
+	// A queue of 256 is plenty because we aggressively prune useless flights
+	BFSNode queue[256];
+	int head = 0, tail = 0;
+
+	// Initialize root
+	queue[tail++] = { start_city, 0, original_hand, {}, false };
+
+	// Visited array stores the *fastest depth* we reached a city.
+	// This prevents the AI from walking in circles.
+	uint8_t visited[NUMBER_OF_CITIES];
+	for (int i = 0; i < NUMBER_OF_CITIES; i++) visited[i] = 255; // 255 = Unvisited
+	visited[start_city] = 0;
+
+	// ==========================================
+	// BFS LOOP
+	// ==========================================
+	while (head < tail) {
+		BFSNode current = queue[head++];
+
+		// Target Reached! Since this is BFS, this is guaranteed to be the shortest path.
+		if (current.city == target_city) {
+			for (int i = 0; i < current.depth; i++) {
+				out_path.Add(current.path[i]);
+			}
+			return true;
+		}
+
+		// Pandemic limit: 4 actions per turn. Stop searching deeper.
+		if (current.depth >= 4) continue;
+
+		uint8_t next_depth = current.depth + 1;
+
+		// --- HELPER: Queue Adder ---
+		auto AddToQueue = [&](uint8_t next_city, uint64_t new_hand, const Action& act, bool ops_used) {
+			// Only add if we haven't found a faster way to this city already
+			if (visited[next_city] <= next_depth) return;
+			visited[next_city] = next_depth;
+
+			BFSNode next_node = current;
+			next_node.city = next_city;
+			next_node.depth = next_depth;
+			next_node.hand = new_hand;
+			next_node.path[current.depth] = act;
+			next_node.ops_flight_used = ops_used;
+			queue[tail++] = next_node;
+			};
+
+		// 1. DRIVE
+		const uint8_t* neighbors = MapData::GetNeighbors(current.city);
+		while (*neighbors != 255) {
+			AddToQueue(*neighbors, current.hand, Action(DRIVE, *neighbors, player_id, player_id), current.ops_flight_used);
+			neighbors++;
+		}
+
+		// 2. SHUTTLE FLIGHT
+		if (cityState.HasStation(current.city)) {
+			uint64_t stations = cityState.GetStationMask() & ~(1ULL << current.city);
+			while (stations > 0) {
+				uint8_t st = std::countr_zero(stations);
+				AddToQueue(st, current.hand, Action(SHUTTLE_FLIGHT, st, player_id, player_id), current.ops_flight_used);
+				stations &= (stations - 1);
+			}
+		}
+
+		// 3. DIRECT FLIGHT (Burn a card to fly to that exact city)
+		uint64_t temp_hand = current.hand;
+		while (temp_hand > 0) {
+			uint8_t card_id = std::countr_zero(temp_hand);
+			if (!CardRegistry::IsEvent(card_id) && CanBurnCard(card_id, current.hand)) {
+				AddToQueue(card_id, current.hand & ~(1ULL << card_id), Action(DIRECT_FLIGHT, card_id, player_id, player_id), current.ops_flight_used);
+			}
+			temp_hand &= (temp_hand - 1);
+		}
+
+		// 4. CHARTER FLIGHT
+		// Pruning Trick: If we can fly ANYWHERE, we only evaluate flying straight to the target!
+		if (CanBurnCard(current.city, current.hand)) {
+			AddToQueue(target_city, current.hand & ~(1ULL << current.city), Action(CHARTER_FLIGHT, target_city, player_id, player_id), current.ops_flight_used);
+		}
+
+		// 5. ROLE ABILITIES
+		Role role = players.GetRole(player_id);
+
+		// Dispatcher Teleport (Teleport to another pawn)
+		if (role == Role::Dispatcher) {
+			for (int p = 0; p < players.count; p++) {
+				if (p != player_id) {
+					uint8_t other_loc = players.GetLocation(p);
+					AddToQueue(other_loc, current.hand, Action(DISPATCHER_TELEPORT, other_loc, player_id, player_id), current.ops_flight_used);
+				}
+			}
+		}
+
+		// Ops Expert Flight (Burn ANY card at a station to fly anywhere)
+		if (role == Role::Operations && cityState.HasStation(current.city) && !current.ops_flight_used) {
+			uint8_t card_to_burn = 255;
+			uint64_t hand_copy = current.hand;
+
+			// Find the first dispensable card to burn
+			while (hand_copy > 0) {
+				uint8_t cid = std::countr_zero(hand_copy);
+				if (!CardRegistry::IsEvent(cid) && CanBurnCard(cid, current.hand)) {
+					card_to_burn = cid;
+					break;
+				}
+				hand_copy &= (hand_copy - 1);
+			}
+
+			if (card_to_burn != 255) {
+				// Pruning Trick: Go straight to target!
+				AddToQueue(target_city, current.hand & ~(1ULL << card_to_burn), Action(OPS_FLIGHT, target_city, player_id, card_to_burn), true);
+			}
+		}
+	}
+
+	return false; // Impossible to reach within 4 actions safely
 }
 
 std::vector<float> GameState::ToTensor() const

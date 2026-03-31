@@ -293,6 +293,13 @@ struct GameState {
 	uint8_t GetTheWorstStation() const;
 	uint8_t GetBestCardToDiscard(uint8_t player_id) const;
 	std::vector<uint8_t> GetBestCardsForCure(uint8_t player_id, ColorType color) const;
+	bool GetFastestPath(
+		uint8_t player_id,
+		uint8_t target_city,
+		bool use_events,
+		ColorType protected_color,
+		int protected_threshold,
+		Turn& out_path) const;
 
 	std::vector<float> ToTensor() const;
 };

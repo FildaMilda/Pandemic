@@ -193,6 +193,8 @@ struct Players {
         return (hands[player_id] & charter_mask) != 0;
     }
 
+
+
     void Print() const;
 };
 

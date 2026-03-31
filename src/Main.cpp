@@ -15,12 +15,13 @@ enum MainType {
     Evolve,
     ID_ACTION_TEST,
     MCTS_PLAY,
-    EAOneSeed
+    EAOneSeed,
+    Test
 };
 
 int main()
 {
-    MainType type = MainType::EAOneSeed;
+    MainType type = MainType::Test;
 
     if (type == MainType::DebugOneGame) {
         CardRegistry cards;
@@ -154,5 +155,29 @@ int main()
 
     if (type == EAOneSeed) {
         EvolveWeightsForSeed(Difficulty::INTRO, 4, 123, 10000, 50, 1000);
+    }
+
+    if (type == Test) {
+
+        CardRegistry cards;
+        cards.Initialize();
+
+        MapData::PrecomputeDistances();
+
+        int longestDist = 0;
+        int a;
+        int b;
+        for (int city_a = 0; city_a < NUMBER_OF_CITIES; city_a++) {
+            for (int city_b = 0; city_b < NUMBER_OF_CITIES; city_b++) {
+                int dist = MapData::GetDistance(city_a, city_b);
+                if (dist > longestDist) {
+                    longestDist = dist;
+                    a = city_a;
+                    b = city_b;
+                }
+            }
+        }
+        std::cout << "Longest drive distance between two cities is: " << longestDist << " Between " << CardRegistry::GetName(a) << " and " << CardRegistry::GetName(b) << "\n";
+
     }
 }
