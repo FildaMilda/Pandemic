@@ -61,8 +61,8 @@ struct GameState {
 			cityState.RemoveAllDiseases(players.GetLocation(gameFlags.GetActivePlayer()), color);
 	}
 
-	inline void DoShare(uint8_t receivingPlayer, uint8_t cardId) {
-		players.RemoveCard(gameFlags.GetActivePlayer(), cardId);
+	inline void DoShare(uint8_t givingPlayer, uint8_t receivingPlayer, uint8_t cardId) {
+		players.RemoveCard(givingPlayer, cardId);
 		players.AddCard(receivingPlayer, cardId);
 	}
 	inline void DoDiscover(uint8_t card1, uint8_t card2, uint8_t card3, uint8_t card4, uint8_t card5) {
@@ -233,6 +233,7 @@ struct GameState {
 			uint8_t cardId = decks.infection_deck.DrawAndDiscard();
 			ColorType color = CardRegistry::GetColor(cardId);
 			InfectCity(cardId, color);
+			cityState.ClearOutbreakChain();
 		}
 	}
 
@@ -253,11 +254,12 @@ struct GameState {
 		*/
 		uint8_t bottom_card = decks.infection_deck.DrawBottomAndDiscard();
 		ColorType card_color = CardRegistry::GetColor(bottom_card);
-		if (!gameFlags.IsCured(card_color)) {
+		if (!gameFlags.IsEradicated(card_color)) { // TODO: The color has to be eradicated, right? Only cured is not enough.
 			for (int i = 0; i < 3; i++) {
 				bool outbreak = InfectCity(bottom_card, card_color);
 				if (outbreak) break;
 			}
+			cityState.ClearOutbreakChain();
 		}
 
 		/*
@@ -275,6 +277,8 @@ struct GameState {
 		}
 	}
 
+	void DoSmartDiscover(uint8_t player_id, ColorType color);
+
 	void GetPossibleActions(ActionList& list) const;
 	void GetFilteredActions(ActionList& list) const;
 	void AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
@@ -286,6 +290,11 @@ struct GameState {
 
 	void GetPolicyTurns(TurnList& list) const;
 	void Execute(Turn& turn);
+	void AddCureTurns(TurnList& list) const;
+	void AddShareTurns(TurnList& list) const;
+	void AddTreatTurns(TurnList& list) const;
+	void AddBuildTurns(TurnList& list) const;
+	void AddWalkTurn(TurnList& list) const;
 
 	void Execute(Action action);
 	void HandleOutbreak(uint8_t city_id, ColorType color);
@@ -299,7 +308,17 @@ struct GameState {
 		bool use_events,
 		ColorType protected_color,
 		int protected_threshold,
-		Turn& out_path) const;
+		Turn& out_path,
+		int action_count,
+		uint8_t excluded_card = 255) const;
+	bool GetFastestPathToAnyStation(
+		uint8_t player_id,
+		bool use_events,
+		ColorType protected_color,
+		int protected_threshold,
+		Turn& out_path,
+		int action_count) const;
+	uint8_t GetDesignatedCurer(ColorType color) const;
 
 	std::vector<float> ToTensor() const;
 };

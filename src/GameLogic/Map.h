@@ -6,6 +6,13 @@
 #include <queue>
 #include "Globals.h"
 
+const int LONGEST_DRIVE = 9;
+
+struct StaticPath {
+    uint8_t length;
+    uint8_t nodes[LONGEST_DRIVE];
+};
+
 struct MapData {
 
     static inline constexpr uint8_t neighbor_counts[NUMBER_OF_CITIES] = {
@@ -66,6 +73,7 @@ struct MapData {
     };
 
     static uint8_t cityDistances[NUMBER_OF_CITIES][NUMBER_OF_CITIES];
+    static StaticPath drivePaths[NUMBER_OF_CITIES][NUMBER_OF_CITIES];
 
     static inline const uint8_t* GetNeighbors(uint8_t cityId) {
         return &adjacency[cityId][0];
@@ -120,7 +128,7 @@ struct MapData {
         return mask;
     }
 
-    static void PrecomputeDistances();
+    static void PrecomputeDistancesAndPaths();
 };
 
 #endif

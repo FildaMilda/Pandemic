@@ -3,6 +3,7 @@
 
 #include "Globals.h"
 #include <iostream>
+#include <format>
 
 enum ActionType : uint8_t {
     DRIVE = 0,          
@@ -120,6 +121,69 @@ struct Action {
             uint32_t _unused : 7;
         } forecast;
     };
+
+    Action() { raw_data = 0; }
+
+    Action(uint8_t type) {
+        base.type = type;
+    }
+
+    // (1) ACTION TYPE (move)
+    Action(uint8_t type, uint8_t city_id, uint8_t executing_player_id, uint8_t target_player_id) {
+        move.type = type;
+        move.target_city = city_id;
+        move.executing_player_id = executing_player_id;
+        move.target_player_id = target_player_id;
+    }
+
+    // (2) ACTION TYPE (treat)
+    Action(uint8_t type, uint8_t city_id, uint8_t player_id, ColorType color) {
+        treat.type = type;
+        treat.target_city = city_id;
+        treat.player_id = player_id;
+        treat.color_id = (uint8_t)color;
+    }
+
+    // (3) ACTION TYPE (share)
+    Action(uint8_t type, bool is_giving, uint8_t card_id, uint8_t player_id, uint8_t receiving_player_id) {
+        share.type = type;
+        share.target_city = card_id;
+        share.is_giving = is_giving;
+        share.player_id = player_id;
+        share.receiving_player_id = receiving_player_id;
+    }
+
+    // (4) ACTION TYPE (discover cure)
+    Action(uint8_t type, ColorType color, uint8_t card0, uint8_t card1, uint8_t card2, uint8_t card3, uint8_t card4) {
+        discover_cure.type = type;
+        discover_cure.color_id = (uint8_t)color;
+        discover_cure.color_card0_id = card0;
+        discover_cure.color_card1_id = card1;
+        discover_cure.color_card2_id = card2;
+        discover_cure.color_card3_id = card3;
+        discover_cure.color_card4_id = card4;
+    }
+
+    // (5) ACTION TYPE (ops expert)
+    Action(uint8_t type, uint8_t target_card_id, uint8_t discard_card_id, uint8_t executing_player_id, uint8_t target_player_id) {
+        ops_expert.type = type;
+        ops_expert.target_city = target_card_id;
+        ops_expert.discard_city = discard_card_id;
+        ops_expert.executing_player_id = executing_player_id;
+        ops_expert.target_player_id = target_player_id;
+    }
+
+    // (6) ACTION TYPE (forecast)
+    Action(uint8_t type, uint8_t player_id, uint8_t idx0, uint8_t idx1, uint8_t idx2, uint8_t idx3, uint8_t idx4, uint8_t idx5) {
+        forecast.type = type;
+        forecast.player_id = player_id;
+        forecast.card_index0 = idx0;
+        forecast.card_index1 = idx1;
+        forecast.card_index2 = idx2;
+        forecast.card_index3 = idx3;
+        forecast.card_index4 = idx4;
+        forecast.card_index5 = idx5;
+    }
 
     const char* GetActionName(uint8_t type) const;
     void Print() const;
@@ -248,6 +312,12 @@ struct MacroAction {
 
     inline const Action* begin() const { return &actions[0]; }
     inline const Action* end() const { return &actions[count]; }
+    inline void Print() const {
+        std::cout << "Macro action:\n";
+        for (int i = 0; i < count; i++) {
+            actions[i].Print();
+        }
+    }
 };
 
 template <int MaxMacros, int MaxActionsPerMacro>
@@ -287,6 +357,15 @@ struct MacroActionList {
 
     inline const MacroAction<MaxActionsPerMacro>& Get(int index) const {
         return macros[index];
+    }
+
+    inline void Print() const {
+        for (int i = 0; i < count; i++) {
+            std::cout << std::format("[{}] Turn:\n", i);
+            for (int j = 0; j < macros[i].count; j++) {
+                macros[i].actions[j].Print();
+            }
+        }
     }
 };
 

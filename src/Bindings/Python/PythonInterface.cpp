@@ -138,7 +138,7 @@ PYBIND11_MODULE(pandemic_cpp, m) {
         CardRegistry cards;
         cards.Initialize();
 
-        MapData::PrecomputeDistances();
+        MapData::PrecomputeDistancesAndPaths();
 
         initialized = true;
     }

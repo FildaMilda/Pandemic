@@ -15,6 +15,7 @@ struct Weights {
     float hotspot_approach_weight = 1.0f;
     float station_network_weight = 1.0f;
     float chain_reaction_penalty = 1.0f;
+    float rendezvous_penalty_weight = 1.0f;
 
     float researcher_meetup_weight = 1.0f;
     float medic_treat_weight = 1.0f;
@@ -65,5 +66,6 @@ struct Weights {
 };
 
 float CalculateHeuristicScore(const GameState& state, const Weights& weights);
+float CalculateHeuristicScoreNew(const GameState& state, const Weights& weights);
 
 #endif

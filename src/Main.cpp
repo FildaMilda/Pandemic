@@ -5,6 +5,7 @@
 #include "MCTS.h"
 #include "EA.h"
 #include "ActionDecoder.h"
+#include "MacroMCTS.h"
 
 #include <fstream>
 #include <iostream>
@@ -27,7 +28,7 @@ int main()
         CardRegistry cards;
         cards.Initialize();
 
-        MapData::PrecomputeDistances();
+        MapData::PrecomputeDistancesAndPaths();
 
         int seed = 3768;
         std::mt19937 realRng(seed);
@@ -55,7 +56,7 @@ int main()
         CardRegistry cards;
         cards.Initialize();
 
-        MapData::PrecomputeDistances();
+        MapData::PrecomputeDistancesAndPaths();
 
         int number_of_games = 100;
 
@@ -120,7 +121,7 @@ int main()
         CardRegistry cards;
         cards.Initialize();
 
-        MapData::PrecomputeDistances();
+        MapData::PrecomputeDistancesAndPaths();
 
         int seed = 205;
         std::mt19937 realRng(seed);
@@ -162,22 +163,36 @@ int main()
         CardRegistry cards;
         cards.Initialize();
 
-        MapData::PrecomputeDistances();
+        MapData::PrecomputeDistancesAndPaths();
 
-        int longestDist = 0;
-        int a;
-        int b;
-        for (int city_a = 0; city_a < NUMBER_OF_CITIES; city_a++) {
-            for (int city_b = 0; city_b < NUMBER_OF_CITIES; city_b++) {
-                int dist = MapData::GetDistance(city_a, city_b);
-                if (dist > longestDist) {
-                    longestDist = dist;
-                    a = city_a;
-                    b = city_b;
-                }
+        for (int seed = 0; seed < 50; seed++) {
+            std::mt19937 realRng(seed);
+
+            GameState state;
+            state.Setup(Difficulty::INTRO, 4, &realRng);
+
+            MacroMCTS brain;
+
+            std::cout << std::format("Starting seed: {}", seed);
+            while (state.currentState == State::InProgress) {
+                uint8_t currentPlayer = state.gameFlags.GetActivePlayer();
+                state.players.Print();
+
+                std::cout << "\nPlayer " << (int)currentPlayer
+                    << " (" << state.players.GetRole(currentPlayer) << "):" << std::endl;
+
+                Turn bestMacro = brain.Search(state, 10000);
+                bestMacro.Print();
+
+                std::cout << std::endl;
+
+                state.Execute(bestMacro);
+
+                std::cout << "Cured: " << (int)state.gameFlags.GetCuredCount()
+                    << " | Outbreaks: " << (int)state.gameFlags.GetOutbreaks()
+                    << " | Cubes: " << state.cityState.global_cubes[0] + state.cityState.global_cubes[1] + state.cityState.global_cubes[2] + state.cityState.global_cubes[3] << "\n";
             }
+            std::cout << std::format("Final state: {}\n", (int)state.currentState);
         }
-        std::cout << "Longest drive distance between two cities is: " << longestDist << " Between " << CardRegistry::GetName(a) << " and " << CardRegistry::GetName(b) << "\n";
-
     }
 }

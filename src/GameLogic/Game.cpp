@@ -164,6 +164,36 @@ void GameState::DoForecastSmart(uint8_t executing_player_id)
 	);
 }
 
+void GameState::DoSmartDiscover(uint8_t player_id, ColorType color)
+{
+	std::vector<uint8_t> cards = GetBestCardsForCure(player_id, color);
+
+	if (cards.size() < 4) {
+		std::cout << std::format("<4 cards bro! Check it out:\nPlayer: {} Color: {}\n", player_id, (int)color);
+		players.Print();
+	}
+
+	if (cards.size() > 4) {
+		DoDiscover(
+			cards[0],
+			cards[1],
+			cards[2],
+			cards[3],
+			cards[4]
+		);
+	}
+	else {
+		DoDiscover(
+			cards[0],
+			cards[1],
+			cards[2],
+			cards[3]
+		);
+	}
+
+	gameFlags.UseAction();
+}
+
 void GameState::GetPossibleActions(ActionList& list) const
 {
 	list.count = 0;
@@ -1186,51 +1216,11 @@ void GameState::AddFilteredDispatcherActions(ActionList& list) const
 
 void GameState::GetPolicyTurns(TurnList& list) const
 {
-	uint8_t currentPlayer = gameFlags.GetActivePlayer();
-	uint8_t currentCity = players.GetLocation(currentPlayer);
-
-	// 1. Cure Disease
-	// Player has enough cards to cure disease, so we cure if there is 
-	// a station in the city, or go to one (or towards).
-	ColorType cureColor = players.GetCureColor(currentPlayer);
-	if (cureColor != ColorType::NO_COLOR) {
-		// 1.0 The city already has station
-		if (cityState.HasStation(currentCity)) {
-
-		}
-
-		// TODO: need to add role specific actions
-
-		// Now we try to find the fastest way to station.
-		// 1.1. Can we build a station in the city we are standing on
-		// by using Government Grant
-		if (players.DoPlayersHaveEventCard(EventCardID::GovGrant)) {
-
-		}
-
-		// 1.2 Can we reach it by only driving (in THIS turn).
-		if (cityState.GetDistanceToNearestStation(currentCity) < 4) {
-
-		}
-
-		// 1.3. Can we build a station in the city we are standing on.
-		// by using a card (need to check if we don't need the card for the cure)
-		if (players.HasCard(currentPlayer, currentCity) && !players.IsNeededForCure(currentPlayer, cureColor, currentCity)) {
-
-		}
-
-		// 1.4. We can charter flight
-		// TODO: need to check if we don't need the card for cure
-		if (players.CanCharter(currentPlayer)) {
-
-		}
-
-		// 1.5. We cannot reach the station in this turn,
-		// so we go towards the closest one.
-
-
-	}
-
+	AddCureTurns(list);
+	AddShareTurns(list);
+	AddTreatTurns(list);
+	AddBuildTurns(list);
+	AddWalkTurn(list); // TODO: Without this I get no moves in the MCTS, which is weird. Look into it 
 }
 
 void GameState::Execute(Turn& turn)
@@ -1238,6 +1228,410 @@ void GameState::Execute(Turn& turn)
 	for (const Action& action : turn) {
 		Execute(action);
 		if (currentState != State::InProgress) break;
+	}
+}
+
+void GameState::AddCureTurns(TurnList& list) const
+{
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+	uint8_t currentCity = players.GetLocation(currentPlayer);
+	uint8_t actions_left = gameFlags.GetActionsRemaining();
+
+	// 1. Cure Disease
+	// Player has enough cards to cure disease, so we cure if there is 
+	// a station in the city, or go to one (or towards).
+	ColorType cureColor = players.GetCureColor(currentPlayer);
+	if (cureColor != ColorType::NO_COLOR && !gameFlags.IsCured(cureColor)) {
+		Turn cureTurn;
+
+		// 1.0 The city already has station
+		if (cityState.HasStation(currentCity)) {
+			if (actions_left >= 1) {
+				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15)); // TODO: Is this good? (We don't need to pass the cards, it will get the best ones)
+				list.Add(cureTurn);
+			}
+		}
+
+		// 1.1 Can we reach it by only driving (in THIS turn).
+		uint8_t dist = cityState.GetDistanceToNearestStation(currentCity);
+		if (dist > 0 && dist < actions_left) {
+			cureTurn.Clear();
+			uint8_t closest_station = cityState.GetNearestStation(currentCity);
+			const StaticPath& drive_path = MapData::drivePaths[currentCity][closest_station];
+			for (int i = 0; i < dist; i++) {
+				cureTurn.Add(Action(DRIVE, drive_path.nodes[i], currentPlayer, currentPlayer));
+			}
+			cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+			list.Add(cureTurn);
+		}
+
+		// Now we try to find the fastest way to station.
+		// 1.2. Can we build a station in the city we are standing on
+		// by using Government Grant
+		if (!cityState.HasStation(currentCity) && players.DoPlayersHaveEventCard(EventCardID::GovGrant)) {
+			if (actions_left >= 1) {
+				cureTurn.Clear();
+				uint8_t owner = players.GetOwnerOf(EventCardID::GovGrant);
+				cureTurn.Add(Action(GOVERNMENT_GRANT, currentCity, owner, owner));
+				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+				list.Add(cureTurn);
+			}
+		}
+
+		// 1.3. Can we build a station in the city we are standing on.
+		// by using a card (need to check if we don't need the card for the cure)
+		if (!cityState.HasStation(currentCity) &&
+			players.HasCard(currentPlayer, currentCity) &&
+			!players.IsNeededForCure(currentPlayer, cureColor, currentCity))
+		{
+			if (actions_left >= 2) {
+				cureTurn.Clear();
+				cureTurn.Add(Action(BUILD, currentCity, currentPlayer, currentPlayer));
+				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+				list.Add(cureTurn);
+			}
+		}
+
+		// 1.4. Check the fastest path to every station
+		cureTurn.Clear();
+		if (GetFastestPathToAnyStation(
+			currentPlayer,
+			true,
+			cureColor,
+			(players.HasRole(currentPlayer, Role::Scientist)) ? 4 : 5,
+			cureTurn,
+			gameFlags.GetActionsRemaining()))
+		{
+			if (cureTurn.count < actions_left) {
+				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+			}
+			list.Add(cureTurn);
+		}
+	}
+}
+
+void GameState::AddShareTurns(TurnList& list) const
+{
+	/*
+	uint8_t activePlayer = gameFlags.GetActivePlayer();
+	uint8_t activeCity = players.GetLocation(activePlayer);
+	int actions_left = gameFlags.GetActionsRemaining();
+	Role activeRole = players.GetRole(activePlayer);
+
+	// We check against every other player
+	for (int otherPlayer = 0; otherPlayer < players.count; otherPlayer++) {
+		if (otherPlayer == activePlayer) continue;
+
+		uint8_t otherCity = players.GetLocation(otherPlayer);
+		Role otherRole = players.GetRole(otherPlayer);
+
+		// 1. ACTIVE GIVES TO PASSIVE
+		uint64_t activeHand = players.hands[activePlayer];
+		while (activeHand > 0) {
+			uint8_t cardId = std::countr_zero(activeHand);
+			activeHand &= (activeHand - 1);
+
+			if (CardRegistry::IsEvent(cardId)) continue;
+			ColorType cardColor = CardRegistry::GetColor(cardId);
+
+			// FILTER 1: Does the other player actually need this for a cure?
+			if (players.IsNeededForCure(otherPlayer, cardColor, cardId)) {
+
+				// FILTER 2: The Rendezvous Lock
+				// Where must the share happen? 
+				// Normally, it's the city of the card. If Active is Researcher, it's ANY city.
+				uint8_t rendezvous = (activeRole == Role::Researcher) ? otherCity : cardId;
+
+				// Is the passive player already waiting at the rendezvous?
+				if (otherCity == rendezvous) {
+					Turn shareMacro;
+
+					// Active player finds fastest path to the rendezvous
+					if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
+
+						// If we can reach them and still have 1 action left to GIVE
+						if (shareMacro.count < actions_left) {
+							shareMacro.Add(Action(SHARE, true, rendezvous, activePlayer, otherPlayer));
+							list.Add(shareMacro);
+						}
+					}
+				}
+			}
+		}
+
+		// 2. ACTIVE TAKES FROM PASSIVE
+		uint64_t passiveHand = players.hands[otherPlayer];
+		while (passiveHand > 0) {
+			uint8_t cardId = std::countr_zero(passiveHand);
+			passiveHand &= (passiveHand - 1);
+
+			if (CardRegistry::IsEvent(cardId)) continue;
+			ColorType cardColor = CardRegistry::GetColor(cardId);
+
+			// FILTER 1: Do WE actually need this card for a cure?
+			if (players.IsNeededForCure(activePlayer, cardColor, cardId)) {
+
+				// FILTER 2: The Rendezvous Lock
+				// If Passive is Researcher, Rendezvous is wherever the passive player currently is.
+				// Otherwise, it's the city on the card.
+				uint8_t rendezvous = (otherRole == Role::Researcher) ? otherCity : cardId;
+
+				// Is the passive player already at the rendezvous?
+				if (otherCity == rendezvous) {
+					Turn shareMacro;
+
+					// Active player rushes to the passive player's waiting spot
+					if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
+
+						// If we can reach them and still have 1 action left to TAKE
+						if (shareMacro.count < actions_left) {
+							shareMacro.Add(Action(SHARE, false, rendezvous, activePlayer, otherPlayer));
+							list.Add(shareMacro);
+						}
+					}
+				}
+			}
+		}
+	}
+	*/
+
+	uint8_t activePlayer = gameFlags.GetActivePlayer();
+	uint8_t activeCity = players.GetLocation(activePlayer);
+	int actions_left = gameFlags.GetActionsRemaining();
+	Role activeRole = players.GetRole(activePlayer);
+
+	// PRE-CALCULATE CURERS: Array mapping ColorType (0-3) to a Player ID
+	uint8_t designatedCurers[ColorType::COUNT];
+	for (int c = 0; c < ColorType::COUNT; c++) {
+		designatedCurers[c] = GetDesignatedCurer(static_cast<ColorType>(c));
+	}
+
+	for (int otherPlayer = 0; otherPlayer < players.count; otherPlayer++) {
+		if (otherPlayer == activePlayer) continue;
+
+		uint8_t otherCity = players.GetLocation(otherPlayer);
+		Role otherRole = players.GetRole(otherPlayer);
+
+		// 1. ACTIVE GIVES TO PASSIVE
+		uint64_t activeHand = players.hands[activePlayer];
+		while (activeHand > 0) {
+			uint8_t cardId = std::countr_zero(activeHand);
+			activeHand &= (activeHand - 1);
+
+			if (CardRegistry::IsEvent(cardId)) continue;
+			ColorType cardColor = CardRegistry::GetColor(cardId);
+
+			// FILTER 1: Is the passive player the DESIGNATED CURER for this color?
+			// If not, we do not want to give them this card.
+			if (designatedCurers[cardColor] == otherPlayer) {
+
+				uint8_t rendezvous = (activeRole == Role::Researcher) ? otherCity : cardId;
+				Turn shareMacro;
+
+				if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
+
+					// If we made it to the rendezvous AND the other player is waiting there
+					if (rendezvous == otherCity && shareMacro.count < actions_left) {
+						shareMacro.Add(Action(SHARE, true, rendezvous, activePlayer, otherPlayer));
+					}
+
+					// We add the macro EVEN IF the share wasn't added. 
+					// This allows the AI to "walk towards the rendezvous" as a valid turn.
+					if (shareMacro.count > 0) {
+						list.Add(shareMacro);
+					}
+				}
+			}
+		}
+
+		// 2. ACTIVE TAKES FROM PASSIVE
+		uint64_t passiveHand = players.hands[otherPlayer];
+		while (passiveHand > 0) {
+			uint8_t cardId = std::countr_zero(passiveHand);
+			passiveHand &= (passiveHand - 1);
+
+			if (CardRegistry::IsEvent(cardId)) continue;
+			ColorType cardColor = CardRegistry::GetColor(cardId);
+
+			// FILTER 1: Are WE the DESIGNATED CURER for this color?
+			// If not, we shouldn't be taking it.
+			if (designatedCurers[cardColor] == activePlayer) {
+
+				uint8_t rendezvous = (otherRole == Role::Researcher) ? otherCity : cardId;
+				Turn shareMacro;
+
+				if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
+
+					// If we made it to the rendezvous AND the other player is waiting there
+					if (rendezvous == otherCity && shareMacro.count < actions_left) {
+						shareMacro.Add(Action(SHARE, false, rendezvous, activePlayer, otherPlayer));
+					}
+
+					// Again, add the macro so the AI can evaluate "getting closer" as a good move.
+					if (shareMacro.count > 0) {
+						list.Add(shareMacro);
+					}
+				}
+			}
+		}
+	}
+
+}
+
+void GameState::AddTreatTurns(TurnList& list) const
+{
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+	uint8_t currentCity = players.GetLocation(currentPlayer);
+	int actions_left = gameFlags.GetActionsRemaining();
+	Role role = players.GetRole(currentPlayer);
+
+	// HELPER: How many treats can we squeeze in?
+	auto AppendTreats = [&](Turn& macro, uint8_t target_city, ColorType color, int available_ap) {
+		if (available_ap <= 0) return;
+
+		int cubes_present = cityState.GetCubeCount(target_city, color);
+
+		// The Medic treats ALL cubes of a color for 1 action
+		// and for 0 actions if the color is cured.
+		// A normal role needs 1 action per cube.
+		// Also, ANY role treats all cubes for 1 action IF the disease is cured.
+		bool is_mass_treat = (role == Role::Medic) || gameFlags.IsCured(color);
+		bool is_passive_treat = (role == Role::Medic) && gameFlags.IsCured(color);
+
+		int treats_needed = is_mass_treat ? 1 : cubes_present;
+		treats_needed = is_passive_treat ? 0 : treats_needed;
+		int treats_to_do = std::min(treats_needed, available_ap);
+
+		for (int i = 0; i < treats_to_do; i++) {
+			macro.Add(Action(TREAT, target_city, currentPlayer, color));
+		}
+		};
+
+	// 1. TREAT CURRENT CITY (Priority 0)
+	// If we are standing on cubes, we should almost always evaluate treating them.
+	for (int c = 0; c < 4; c++) {
+		ColorType color = static_cast<ColorType>(c);
+		if (cityState.HasDisease(currentCity, color)) {
+			Turn treatTurn;
+			AppendTreats(treatTurn, currentCity, color, actions_left);
+			list.Add(treatTurn);
+		}
+	}
+
+	// 2. TRAVEL AND TREAT (High-Priority Targets)
+	// We want to extract Hotspots (3 cubes) and Danger Zones (2 cubes).
+	uint64_t target_mask = cityState.GetHotspotMask();
+
+	// Add 2-cube cities to the target mask
+	for (uint8_t i = 0; i < NUMBER_OF_CITIES; i++) {
+		if (cityState.GetCubeCount(i) == 2) {
+			target_mask |= (1ULL << i);
+		}
+	}
+
+	// Remove current city from the mask
+	target_mask &= ~(1ULL << currentCity);
+
+	// Loop through the high-priority targets
+	while (target_mask > 0) {
+		uint8_t target_city = std::countr_zero(target_mask);
+
+		Turn pathMacro;
+
+		if (GetFastestPath(currentPlayer, target_city, false, ColorType::NO_COLOR, 0, pathMacro, actions_left)) {
+
+			if (pathMacro.count < actions_left) {
+				ColorType dominantColor = cityState.GetDominantDiseaseColor(target_city);
+
+				int remaining_ap = actions_left - pathMacro.count;
+				AppendTreats(pathMacro, target_city, dominantColor, remaining_ap);
+			}
+
+			list.Add(pathMacro);
+		}
+
+		target_mask &= (target_mask - 1);
+	}
+}
+
+void GameState::AddBuildTurns(TurnList& list) const
+{
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+	uint8_t currentCity = players.GetLocation(currentPlayer);
+	int actions_left = gameFlags.GetActionsRemaining();
+	Role role = players.GetRole(currentPlayer);
+
+	const int MIN_STATION_DISTANCE = 3;
+
+	ColorType cureColor = players.GetCureColor(currentPlayer);
+	int cureThreshold = (role == Role::Scientist) ? 4 : 5;
+
+	// 1. OPERATIONS EXPERT (The Free Build)
+	if (role == Role::Operations) {
+		// If there is no station around
+		if (!cityState.HasStation(currentCity) &&
+			cityState.GetDistanceToNearestStation(currentCity) >= MIN_STATION_DISTANCE)
+		{
+			Turn opsBuildTurn;
+			// Takes 1 action to build
+			if (actions_left >= 1) {
+				opsBuildTurn.Add(Action(EXPERT_BUILD, currentCity, currentPlayer, currentPlayer));
+				list.Add(opsBuildTurn);
+			}
+		}
+		// Note: We don't generate "Walk towards empty cities to build" for the Ops Expert
+		// here, because that would generate 48 different branches! Their standard driving 
+		// handles their movement, and they will naturally build when they land in a good spot.
+	}
+
+	// 2. STANDARD BUILD (Using City Cards)
+	uint64_t temp_hand = players.hands[currentPlayer];
+
+	while (temp_hand > 0) {
+		uint8_t target_city = std::countr_zero(temp_hand);
+		temp_hand &= (temp_hand - 1);
+
+		if (CardRegistry::IsEvent(target_city)) continue;
+
+		// FILTER 1: Is there already a station there?
+		if (cityState.HasStation(target_city)) continue;
+
+		// FILTER 2: Is it too close to an existing station?
+		if (cityState.GetDistanceToNearestStation(target_city) < MIN_STATION_DISTANCE) continue;
+
+		// FILTER 3: Do we desperately need this card for a cure?
+		if (players.IsNeededForCure(currentPlayer, cureColor, target_city)) continue;
+
+		Turn buildMacro;
+
+		// Note: prioritize_cards = true. We'd rather walk and save flight cards for emergencies.
+		if (GetFastestPath(currentPlayer, target_city, false, cureColor, cureThreshold, buildMacro, actions_left, target_city)) {
+
+			// If the path length is strictly LESS than our available actions, 
+			// it means we arrived with at least 1 action left to actually drop the station.
+			if (buildMacro.count < actions_left) {
+				buildMacro.Add(Action(BUILD, target_city, currentPlayer, currentPlayer));
+			}
+
+			list.Add(buildMacro);
+		}
+	}
+}
+
+void GameState::AddWalkTurn(TurnList& list) const
+{
+	int actions_left = gameFlags.GetActionsRemaining();
+	if (actions_left <= 0) return;
+
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+	uint8_t currentCity = players.GetLocation(currentPlayer);
+
+	// Just add 1 macro for every adjacent city. 
+	int count = MapData::neighbor_counts[currentCity];
+	for (int i = 0; i < count; i++) {
+		Turn driveTurn;
+		driveTurn.Add(Action(DRIVE, MapData::adjacency[currentCity][i], currentPlayer, currentPlayer));
+		list.Add(driveTurn);
 	}
 }
 
@@ -1276,18 +1670,27 @@ void GameState::Execute(Action action)
 		break;
 
 	case SHARE:
-		DoShare(action.share.receiving_player_id, action.share.target_city);
+		DoShare(action.share.player_id, action.share.receiving_player_id, action.share.target_city);
 		gameFlags.UseAction();
 		break;
 
 	case CURE:
-		DoDiscover(
-			action.discover_cure.color_card0_id,
-			action.discover_cure.color_card1_id,
-			action.discover_cure.color_card2_id,
-			action.discover_cure.color_card3_id,
-			action.discover_cure.color_card4_id
-		);
+		if (action.discover_cure.color_card1_id == 15 &&
+			action.discover_cure.color_card2_id == 15 &&
+			action.discover_cure.color_card3_id == 15 &&
+			action.discover_cure.color_card4_id == 15)
+		{
+			DoSmartDiscover(gameFlags.GetActivePlayer(), (ColorType)action.discover_cure.color_id);
+		}
+		else {
+			DoDiscover(
+				action.discover_cure.color_card0_id + action.discover_cure.color_id * NUMBER_OF_CITIES_PER_COLOR,
+				action.discover_cure.color_card1_id + action.discover_cure.color_id * NUMBER_OF_CITIES_PER_COLOR,
+				action.discover_cure.color_card2_id + action.discover_cure.color_id * NUMBER_OF_CITIES_PER_COLOR,
+				action.discover_cure.color_card3_id + action.discover_cure.color_id * NUMBER_OF_CITIES_PER_COLOR,
+				action.discover_cure.color_card4_id + action.discover_cure.color_id * NUMBER_OF_CITIES_PER_COLOR
+			);
+		}
 		gameFlags.UseAction();
 		break;
 
@@ -1371,18 +1774,18 @@ void GameState::Execute(Action action)
 	}
 
 	// if the outbreaks marker reaches the last space of the Outbreaks Track
-	if (gameFlags.GetOutbreaks() == OUTBREAK_MARKER_MAX) {
+	else if (gameFlags.GetOutbreaks() == OUTBREAK_MARKER_MAX) {
 		currentState = State::OutbreakMarkerMaxed;
 	}
 
 	// if you are unable to place the number of disease cubes actually
 	// needed on the board
-	if (cityState.HasLostToCubes()) {
+	else if (cityState.HasLostToCubes()) {
 		currentState = State::NoMoreDiseaseCubes;
 	}
 
 	// if a player cannot draw 2 Player cards after doing his actions.
-	if (decks.player_deck.Count() < 2) {
+	else if (decks.player_deck.Count() < 2) {
 		currentState = State::NotEnoughPlayerCards;
 	}
 
@@ -1396,6 +1799,7 @@ void GameState::HandleOutbreak(uint8_t city_id, ColorType color)
 	gameFlags.IncOutbreaks();
 	if (gameFlags.GetOutbreaks() >= OUTBREAK_MARKER_MAX) {
 		// GAME OVER
+		currentState = State::OutbreakMarkerMaxed;
 		return;
 	}
 
@@ -1532,164 +1936,207 @@ std::vector<uint8_t> GameState::GetBestCardsForCure(uint8_t player_id, ColorType
 	return result;
 }
 
-bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_events, ColorType protected_color, int protected_threshold, Turn& out_path) const
+bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_events, ColorType protected_color, int protected_threshold, Turn& out_path, int action_count, uint8_t excluded_card) const
 {
 	out_path.Clear();
 	uint8_t start_city = players.GetLocation(player_id);
 
-	// Base Case
 	if (start_city == target_city) return true;
 
-	uint64_t original_hand = players.hands[player_id];
+	Turn best_path;
+	int best_cost = 99; // 99 acts as "infinity" for Pandemic distances
 
-	// ==========================================
-	// 0. AIRLIFT (Cost: 0 Actions)
-	// ==========================================
-	// If Airlift is allowed and in our hand, we instantly win the pathfinding.
-	if (use_events && ((original_hand >> EventCardID::Airlift) & 1ULL)) {
-		out_path.Add(AIRLIFT, target_city, player_id, player_id);
+	// HELPER: Evaluates path and stores it if it's the new fastest
+	auto TryUpdatePath = [&](int total_cost, bool has_special, const Action& special_action, uint8_t intermediate_city) {
+		if (total_cost < best_cost) {
+			best_cost = total_cost;
+			best_path.Clear();
+
+			if (has_special) {
+				best_path.Add(special_action);
+			}
+
+			const StaticPath& remaining_drive = MapData::drivePaths[intermediate_city][target_city];
+			for (int i = 0; i < remaining_drive.length; i++) {
+				best_path.Add(Action(DRIVE, remaining_drive.nodes[i], player_id, player_id));
+			}
+		}
+		};
+
+	// 1. BASELINE: Just Driving
+	const StaticPath& drivePath = MapData::drivePaths[start_city][target_city];
+	TryUpdatePath(drivePath.length, false, Action(), start_city);
+
+	// 2. EVENT CARDS (Cost: 0 Actions)
+	if (use_events) {
+		if (players.DoPlayersHaveEventCard(EventCardID::Airlift)) {
+			// Airlift is an instant teleport. Best possible path.
+			out_path.Add(Action(AIRLIFT, target_city, player_id, player_id));
+			return true;
+		}
+	}
+
+	// 3. ROLE ABILITIES
+	if (players.GetRole(player_id) == Role::Dispatcher) {
+		for (int p = 0; p < players.count; p++) {
+			if (p == player_id) continue;
+			uint8_t friend_loc = players.GetLocation(p);
+			int cost = 1 + MapData::drivePaths[friend_loc][target_city].length;
+
+			TryUpdatePath(cost, true, Action(DISPATCHER_MOVE, friend_loc, player_id, player_id), friend_loc);
+		}
+	}
+	else if (players.GetRole(player_id) == Role::Operations) {
+		if (cityState.HasStation(start_city)) {
+			uint64_t temp_hand = players.hands[player_id];
+			uint8_t trash_card = 255;
+
+			while (temp_hand > 0) {
+				uint8_t cardId = std::countr_zero(temp_hand);
+				temp_hand &= (temp_hand - 1);
+
+				if (cardId == excluded_card) continue;
+
+				if (!CardRegistry::IsEvent(cardId) && !players.IsNeededForCure(player_id, protected_color, cardId)) {
+					trash_card = cardId;
+					break;
+				}
+			}
+
+			if (trash_card != 255) {
+				TryUpdatePath(1, true, Action(EXPERT_MOVE, target_city, trash_card, player_id, player_id), target_city);
+			}
+		}
+	}
+
+	// 4. SHUTTLE FLIGHTS
+	if (cityState.HasStation(start_city)) {
+		uint64_t stations = cityState.GetStationMask() & ~(1ULL << start_city);
+		while (stations > 0) {
+			uint8_t station_city = std::countr_zero(stations);
+			int cost = 1 + MapData::drivePaths[station_city][target_city].length;
+
+			TryUpdatePath(cost, true, Action(SHUTTLE_FLIGHT, station_city, player_id, player_id), station_city);
+			stations &= (stations - 1);
+		}
+	}
+
+	// 5. DIRECT & CHARTER FLIGHTS
+	uint64_t temp_hand = players.hands[player_id];
+	while (temp_hand > 0) {
+		uint8_t cardId = std::countr_zero(temp_hand);
+		temp_hand &= (temp_hand - 1);
+
+		if (cardId == excluded_card) continue;
+
+		if (!CardRegistry::IsEvent(cardId) && !players.IsNeededForCure(player_id, protected_color, cardId)) {
+
+			if (cardId == start_city) {
+				TryUpdatePath(1, true, Action(CHARTER_FLIGHT, target_city, player_id, player_id), target_city);
+			}
+			else {
+				int cost = 1 + MapData::drivePaths[cardId][target_city].length;
+				TryUpdatePath(cost, true, Action(DIRECT_FLIGHT, cardId, player_id, player_id), cardId);
+			}
+		}
+	}
+
+	// 6. FINALIZE
+	if (best_cost < 99) {
+		int actions_to_take = std::min(best_path.count, (uint8_t)action_count);
+
+		for (int i = 0; i < actions_to_take; i++) {
+			out_path.Add(best_path.actions[i]);
+		}
 		return true;
 	}
 
-	// --- HELPER: Can we safely discard this card? ---
-	auto CanBurnCard = [&](uint8_t card_id, uint64_t current_hand) {
-		if (!((current_hand >> card_id) & 1ULL)) return false; // Don't have it
+	// Should not happen.
+	// There is always a way <99 to the location using only drive
+	return false;
+}
 
-		ColorType c = CardRegistry::GetColor(card_id);
-		if (c != protected_color) return true; // Not protected, burn it!
+bool GameState::GetFastestPathToAnyStation(uint8_t player_id, bool use_events, ColorType protected_color, int protected_threshold, Turn& out_path, int action_count) const
+{
+	out_path.Clear();
 
-		// It is the protected color. Do we have a spare?
-		int count = std::popcount(current_hand & GameConstants::COLOR_MASKS[c]);
-		return count > protected_threshold;
-		};
+	// 1. Get all active research stations
+	uint64_t stations = cityState.GetStationMask();
+	if (stations == 0) return false;
 
-	// ==========================================
-	// BFS SETUP
-	// ==========================================
-	struct BFSNode {
-		uint8_t city;
-		uint8_t depth;       // Actions taken
-		uint64_t hand;       // Current cards available
-		Action path[4];      // The steps to get here
-		bool ops_flight_used;
-	};
+	Turn best_overall_path;
+	int shortest_path_length = 99;
 
-	// A queue of 256 is plenty because we aggressively prune useless flights
-	BFSNode queue[256];
-	int head = 0, tail = 0;
+	// 2. Loop through every station
+	while (stations > 0) {
+		uint8_t station_city = std::countr_zero(stations);
 
-	// Initialize root
-	queue[tail++] = { start_city, 0, original_hand, {}, false };
+		Turn temp_path;
 
-	// Visited array stores the *fastest depth* we reached a city.
-	// This prevents the AI from walking in circles.
-	uint8_t visited[NUMBER_OF_CITIES];
-	for (int i = 0; i < NUMBER_OF_CITIES; i++) visited[i] = 255; // 255 = Unvisited
-	visited[start_city] = 0;
+		if (GetFastestPath(player_id, station_city, use_events, protected_color, protected_threshold, temp_path, action_count)) {
 
-	// ==========================================
-	// BFS LOOP
-	// ==========================================
-	while (head < tail) {
-		BFSNode current = queue[head++];
-
-		// Target Reached! Since this is BFS, this is guaranteed to be the shortest path.
-		if (current.city == target_city) {
-			for (int i = 0; i < current.depth; i++) {
-				out_path.Add(current.path[i]);
+			// The player is already at a station
+			if (temp_path.count == 0) {
+				out_path.Clear();
+				return true;
 			}
-			return true;
-		}
 
-		// Pandemic limit: 4 actions per turn. Stop searching deeper.
-		if (current.depth >= 4) continue;
-
-		uint8_t next_depth = current.depth + 1;
-
-		// --- HELPER: Queue Adder ---
-		auto AddToQueue = [&](uint8_t next_city, uint64_t new_hand, const Action& act, bool ops_used) {
-			// Only add if we haven't found a faster way to this city already
-			if (visited[next_city] <= next_depth) return;
-			visited[next_city] = next_depth;
-
-			BFSNode next_node = current;
-			next_node.city = next_city;
-			next_node.depth = next_depth;
-			next_node.hand = new_hand;
-			next_node.path[current.depth] = act;
-			next_node.ops_flight_used = ops_used;
-			queue[tail++] = next_node;
-			};
-
-		// 1. DRIVE
-		const uint8_t* neighbors = MapData::GetNeighbors(current.city);
-		while (*neighbors != 255) {
-			AddToQueue(*neighbors, current.hand, Action(DRIVE, *neighbors, player_id, player_id), current.ops_flight_used);
-			neighbors++;
-		}
-
-		// 2. SHUTTLE FLIGHT
-		if (cityState.HasStation(current.city)) {
-			uint64_t stations = cityState.GetStationMask() & ~(1ULL << current.city);
-			while (stations > 0) {
-				uint8_t st = std::countr_zero(stations);
-				AddToQueue(st, current.hand, Action(SHUTTLE_FLIGHT, st, player_id, player_id), current.ops_flight_used);
-				stations &= (stations - 1);
+			if (temp_path.count < shortest_path_length) {
+				shortest_path_length = temp_path.count;
+				best_overall_path = temp_path;
 			}
 		}
 
-		// 3. DIRECT FLIGHT (Burn a card to fly to that exact city)
-		uint64_t temp_hand = current.hand;
+		stations &= (stations - 1);
+	}
+
+	if (shortest_path_length < 99) {
+		out_path = best_overall_path;
+		return true;
+	}
+
+	return false;
+}
+
+uint8_t GameState::GetDesignatedCurer(ColorType color) const
+{
+	uint8_t bestPlayer = 255;
+	int bestScore = -1;
+
+	if (gameFlags.IsCured(color)) return bestPlayer;
+
+	for (uint8_t p = 0; p < players.count; p++) {
+		int cardCount = 0;
+		uint64_t temp_hand = players.hands[p];
+
 		while (temp_hand > 0) {
-			uint8_t card_id = std::countr_zero(temp_hand);
-			if (!CardRegistry::IsEvent(card_id) && CanBurnCard(card_id, current.hand)) {
-				AddToQueue(card_id, current.hand & ~(1ULL << card_id), Action(DIRECT_FLIGHT, card_id, player_id, player_id), current.ops_flight_used);
-			}
+			uint8_t cardId = std::countr_zero(temp_hand);
 			temp_hand &= (temp_hand - 1);
-		}
 
-		// 4. CHARTER FLIGHT
-		// Pruning Trick: If we can fly ANYWHERE, we only evaluate flying straight to the target!
-		if (CanBurnCard(current.city, current.hand)) {
-			AddToQueue(target_city, current.hand & ~(1ULL << current.city), Action(CHARTER_FLIGHT, target_city, player_id, player_id), current.ops_flight_used);
-		}
-
-		// 5. ROLE ABILITIES
-		Role role = players.GetRole(player_id);
-
-		// Dispatcher Teleport (Teleport to another pawn)
-		if (role == Role::Dispatcher) {
-			for (int p = 0; p < players.count; p++) {
-				if (p != player_id) {
-					uint8_t other_loc = players.GetLocation(p);
-					AddToQueue(other_loc, current.hand, Action(DISPATCHER_TELEPORT, other_loc, player_id, player_id), current.ops_flight_used);
-				}
+			if (!CardRegistry::IsEvent(cardId) && CardRegistry::GetColor(cardId) == color) {
+				cardCount++;
 			}
 		}
 
-		// Ops Expert Flight (Burn ANY card at a station to fly anywhere)
-		if (role == Role::Operations && cityState.HasStation(current.city) && !current.ops_flight_used) {
-			uint8_t card_to_burn = 255;
-			uint64_t hand_copy = current.hand;
+		// Scoring: 10 points per card. 
+		// The Scientist needs 1 less card, effectively giving them a massive head start.
+		int score = cardCount * 10;
+		if (players.GetRole(p) == Role::Scientist) {
+			score += 5;
+		}
 
-			// Find the first dispensable card to burn
-			while (hand_copy > 0) {
-				uint8_t cid = std::countr_zero(hand_copy);
-				if (!CardRegistry::IsEvent(cid) && CanBurnCard(cid, current.hand)) {
-					card_to_burn = cid;
-					break;
-				}
-				hand_copy &= (hand_copy - 1);
-			}
+		// If a player holds 0 cards, they shouldn't be the designated curer 
+		// unless literally no one has cards of this color.
+		if (cardCount == 0 && bestScore > -1) continue;
 
-			if (card_to_burn != 255) {
-				// Pruning Trick: Go straight to target!
-				AddToQueue(target_city, current.hand & ~(1ULL << card_to_burn), Action(OPS_FLIGHT, target_city, player_id, card_to_burn), true);
-			}
+		// Tie-breaker uses Player ID to ensure deterministic behavior (prevents oscillation)
+		if (score > bestScore || (score == bestScore && p < bestPlayer)) {
+			bestScore = score;
+			bestPlayer = p;
 		}
 	}
 
-	return false; // Impossible to reach within 4 actions safely
+	return bestPlayer;
 }
 
 std::vector<float> GameState::ToTensor() const

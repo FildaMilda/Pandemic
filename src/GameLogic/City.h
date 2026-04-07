@@ -131,6 +131,11 @@ struct CityState {
         return cities[cityId].GetCubes(color) > 0;
     }
 
+    inline bool HasDisease(uint8_t city_id) const {
+        return cities[city_id].GetCubes(ColorType::BLACK) + cities[city_id].GetCubes(ColorType::BLUE)
+            + cities[city_id].GetCubes(ColorType::RED) + cities[city_id].GetCubes(ColorType::YELLOW) > 0;
+    }
+
     inline uint8_t GetDiseaseCount(uint8_t city_id, ColorType color) const {
         return cities[city_id].GetCubes(color);
     }
@@ -184,6 +189,11 @@ struct CityState {
         return cities[city_id].GetCubes(color);
     }
 
+    inline uint8_t GetCubeCount(uint8_t city_id) const {
+        return cities[city_id].GetCubes(ColorType::BLACK) + cities[city_id].GetCubes(ColorType::BLUE)
+            + cities[city_id].GetCubes(ColorType::RED) + cities[city_id].GetCubes(ColorType::YELLOW);
+    }
+
     inline uint8_t GetTotalCubeCount(uint8_t city_id) const {
         return GetCubeCount(city_id, ColorType::BLACK) + GetCubeCount(city_id, ColorType::BLUE)
             + GetCubeCount(city_id, ColorType::YELLOW) + GetCubeCount(city_id, ColorType::RED);
@@ -208,8 +218,50 @@ struct CityState {
         return MapData::GetDistanceToNearest(playerLocation, station_mask);
     }
 
+    inline uint8_t GetNearestStation(uint8_t city_id) const {
+        uint8_t closest_station = 255;
+        uint64_t stations = GetStationMask();
+        uint8_t dist = GetDistanceToNearestStation(city_id);
+        while (stations > 0) {
+            uint8_t st = std::countr_zero(stations);
+            if (MapData::cityDistances[city_id][st] == dist) {
+                closest_station = st;
+                break;
+            }
+            stations &= (stations - 1);
+        }
+        return closest_station;
+    }
+
     inline uint8_t GetDistanceToNearestHotspot(uint8_t playerLocation) const {
         return MapData::GetDistanceToNearest(playerLocation, hotspot_mask);
+    }
+
+    inline ColorType GetDominantDiseaseColor(uint8_t city_id) const {
+        int total_cubes = GetCubeCount(city_id);
+        if (total_cubes == 0) return ColorType::NO_COLOR;
+
+        ColorType native_color = CardRegistry::GetColor(city_id);
+        int native_count = GetCubeCount(city_id, native_color);
+
+        if (native_count == total_cubes) {
+            return native_color;
+        }
+
+        ColorType best_color = native_color;
+        int max_count = native_count;
+
+        for (int c = 0; c < ColorType::COUNT; ++c) {
+            if (c == native_color) continue;
+
+            int count = GetCubeCount(city_id, static_cast<ColorType>(c));
+            if (count > max_count) {
+                max_count = count;
+                best_color = static_cast<ColorType>(c);
+            }
+        }
+
+        return best_color;
     }
 
     void Print() const;

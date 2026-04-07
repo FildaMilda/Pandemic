@@ -176,7 +176,7 @@ struct Players {
     }
 
     inline bool IsNeededForCure(uint8_t player_id, ColorType color, uint8_t card_id) const {
-        if (CardRegistry::GetColor(color) != color) {
+        if (CardRegistry::GetColor(card_id) != color) {
             return false;
         }
 
@@ -193,7 +193,9 @@ struct Players {
         return (hands[player_id] & charter_mask) != 0;
     }
 
-
+    inline bool HasRole(uint8_t player_id, Role role) const {
+        return roles[player_id] == role;
+    }
 
     void Print() const;
 };

@@ -12,7 +12,7 @@ GameResult PlayGameMCTS(Difficulty diff, uint8_t player_count, int seed, const W
     static std::once_flag flag;
     std::call_once(flag, []() { cards.Initialize(); });
 
-    MapData::PrecomputeDistances();
+    MapData::PrecomputeDistancesAndPaths();
 
     GameState state;
     state.Setup(diff, player_count, &realRng);
