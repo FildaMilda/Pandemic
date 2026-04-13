@@ -1,19 +1,21 @@
 #include "Game.h"
 
-void GameState::Setup(Difficulty diff, uint8_t player_count, std::mt19937* rng)
+void GameState::Setup(Difficulty diff, uint8_t player_count, std::mt19937* externalRng)
 {
-	this->rng_ptr = rng;
+	uint32_t seed = (*externalRng)();
+	this->rng.seed(seed);
+
 	currentState = State::InProgress;
 
 	gameFlags.Init();
 	cityState.Init();
 	players.Init(player_count);
-	decks.infection_deck.Init(rng);
-	decks.player_deck.Init(rng);
+	decks.infection_deck.Init(&rng);
+	decks.player_deck.Init(&rng);
 
 	InfectCitiesSetup();
 	DealPlayerCards();
-	InsertEpidemicCards(rng, diff);
+	InsertEpidemicCards(diff);
 	SetRoles();
 }
 
@@ -48,7 +50,7 @@ void GameState::DealPlayerCards()
 	}
 }
 
-void GameState::InsertEpidemicCards(std::mt19937* rng, Difficulty diff)
+void GameState::InsertEpidemicCards(Difficulty diff)
 {
 	uint8_t numEpidemics = MIN_EPIDEMIC_CARD + (uint8_t)diff;
 
@@ -72,7 +74,7 @@ void GameState::InsertEpidemicCards(std::mt19937* rng, Difficulty diff)
 
 		// Pick a random spot within this specific pile's bounds
 		std::uniform_int_distribution<int> dist(pileStart, pileEnd);
-		int randomIndex = dist(*rng);
+		int randomIndex = dist(rng);
 
 		decks.player_deck.InsertAt(randomIndex, CardRegistry::GetEpidemicCardID());
 
@@ -91,7 +93,7 @@ void GameState::SetRoles()
 
 		// Pick a random index from the remaining unassigned pool (i to 6)
 		std::uniform_int_distribution<int> dist(i, 6);
-		int rand_idx = dist(*rng_ptr);
+		int rand_idx = dist(rng);
 
 		// Swap the randomly chosen role into the current 'i' slot
 		uint8_t temp = available_roles[i];
@@ -1229,6 +1231,8 @@ void GameState::Execute(Turn& turn)
 		Execute(action);
 		if (currentState != State::InProgress) break;
 	}
+
+	HandleLimits();
 }
 
 void GameState::AddCureTurns(TurnList& list) const
@@ -1236,6 +1240,19 @@ void GameState::AddCureTurns(TurnList& list) const
 	uint8_t currentPlayer = gameFlags.GetActivePlayer();
 	uint8_t currentCity = players.GetLocation(currentPlayer);
 	uint8_t actions_left = gameFlags.GetActionsRemaining();
+
+	// Helper to safely instantiate CURE without constructor ambiguity
+	auto MakeCureAction = [](ColorType color) {
+		Action a;
+		a.base.type = CURE;
+		a.discover_cure.color_id = color;
+		a.discover_cure.color_card0_id = 15;
+		a.discover_cure.color_card1_id = 15;
+		a.discover_cure.color_card2_id = 15;
+		a.discover_cure.color_card3_id = 15;
+		a.discover_cure.color_card4_id = 15;
+		return a;
+		};
 
 	// 1. Cure Disease
 	// Player has enough cards to cure disease, so we cure if there is 
@@ -1247,7 +1264,7 @@ void GameState::AddCureTurns(TurnList& list) const
 		// 1.0 The city already has station
 		if (cityState.HasStation(currentCity)) {
 			if (actions_left >= 1) {
-				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15)); // TODO: Is this good? (We don't need to pass the cards, it will get the best ones)
+				cureTurn.Add(MakeCureAction(cureColor));
 				list.Add(cureTurn);
 			}
 		}
@@ -1261,7 +1278,7 @@ void GameState::AddCureTurns(TurnList& list) const
 			for (int i = 0; i < dist; i++) {
 				cureTurn.Add(Action(DRIVE, drive_path.nodes[i], currentPlayer, currentPlayer));
 			}
-			cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+			cureTurn.Add(MakeCureAction(cureColor));
 			list.Add(cureTurn);
 		}
 
@@ -1273,7 +1290,7 @@ void GameState::AddCureTurns(TurnList& list) const
 				cureTurn.Clear();
 				uint8_t owner = players.GetOwnerOf(EventCardID::GovGrant);
 				cureTurn.Add(Action(GOVERNMENT_GRANT, currentCity, owner, owner));
-				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+				cureTurn.Add(MakeCureAction(cureColor));
 				list.Add(cureTurn);
 			}
 		}
@@ -1287,7 +1304,7 @@ void GameState::AddCureTurns(TurnList& list) const
 			if (actions_left >= 2) {
 				cureTurn.Clear();
 				cureTurn.Add(Action(BUILD, currentCity, currentPlayer, currentPlayer));
-				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+				cureTurn.Add(MakeCureAction(cureColor));
 				list.Add(cureTurn);
 			}
 		}
@@ -1303,7 +1320,7 @@ void GameState::AddCureTurns(TurnList& list) const
 			gameFlags.GetActionsRemaining()))
 		{
 			if (cureTurn.count < actions_left) {
-				cureTurn.Add(Action(CURE, cureColor, currentPlayer, 15, 15, 15, 15));
+				cureTurn.Add(MakeCureAction(cureColor));
 			}
 			list.Add(cureTurn);
 		}
@@ -1312,93 +1329,22 @@ void GameState::AddCureTurns(TurnList& list) const
 
 void GameState::AddShareTurns(TurnList& list) const
 {
-	/*
 	uint8_t activePlayer = gameFlags.GetActivePlayer();
 	uint8_t activeCity = players.GetLocation(activePlayer);
 	int actions_left = gameFlags.GetActionsRemaining();
 	Role activeRole = players.GetRole(activePlayer);
 
-	// We check against every other player
-	for (int otherPlayer = 0; otherPlayer < players.count; otherPlayer++) {
-		if (otherPlayer == activePlayer) continue;
-
-		uint8_t otherCity = players.GetLocation(otherPlayer);
-		Role otherRole = players.GetRole(otherPlayer);
-
-		// 1. ACTIVE GIVES TO PASSIVE
-		uint64_t activeHand = players.hands[activePlayer];
-		while (activeHand > 0) {
-			uint8_t cardId = std::countr_zero(activeHand);
-			activeHand &= (activeHand - 1);
-
-			if (CardRegistry::IsEvent(cardId)) continue;
-			ColorType cardColor = CardRegistry::GetColor(cardId);
-
-			// FILTER 1: Does the other player actually need this for a cure?
-			if (players.IsNeededForCure(otherPlayer, cardColor, cardId)) {
-
-				// FILTER 2: The Rendezvous Lock
-				// Where must the share happen? 
-				// Normally, it's the city of the card. If Active is Researcher, it's ANY city.
-				uint8_t rendezvous = (activeRole == Role::Researcher) ? otherCity : cardId;
-
-				// Is the passive player already waiting at the rendezvous?
-				if (otherCity == rendezvous) {
-					Turn shareMacro;
-
-					// Active player finds fastest path to the rendezvous
-					if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
-
-						// If we can reach them and still have 1 action left to GIVE
-						if (shareMacro.count < actions_left) {
-							shareMacro.Add(Action(SHARE, true, rendezvous, activePlayer, otherPlayer));
-							list.Add(shareMacro);
-						}
-					}
-				}
-			}
-		}
-
-		// 2. ACTIVE TAKES FROM PASSIVE
-		uint64_t passiveHand = players.hands[otherPlayer];
-		while (passiveHand > 0) {
-			uint8_t cardId = std::countr_zero(passiveHand);
-			passiveHand &= (passiveHand - 1);
-
-			if (CardRegistry::IsEvent(cardId)) continue;
-			ColorType cardColor = CardRegistry::GetColor(cardId);
-
-			// FILTER 1: Do WE actually need this card for a cure?
-			if (players.IsNeededForCure(activePlayer, cardColor, cardId)) {
-
-				// FILTER 2: The Rendezvous Lock
-				// If Passive is Researcher, Rendezvous is wherever the passive player currently is.
-				// Otherwise, it's the city on the card.
-				uint8_t rendezvous = (otherRole == Role::Researcher) ? otherCity : cardId;
-
-				// Is the passive player already at the rendezvous?
-				if (otherCity == rendezvous) {
-					Turn shareMacro;
-
-					// Active player rushes to the passive player's waiting spot
-					if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
-
-						// If we can reach them and still have 1 action left to TAKE
-						if (shareMacro.count < actions_left) {
-							shareMacro.Add(Action(SHARE, false, rendezvous, activePlayer, otherPlayer));
-							list.Add(shareMacro);
-						}
-					}
-				}
-			}
-		}
-	}
-	*/
-
-	uint8_t activePlayer = gameFlags.GetActivePlayer();
-	uint8_t activeCity = players.GetLocation(activePlayer);
-	int actions_left = gameFlags.GetActionsRemaining();
-	Role activeRole = players.GetRole(activePlayer);
+	// Helper to safely instantiate SHARE without constructor ambiguity,
+	// enforcing the struct layout cleanly.
+	auto MakeShareAction = [](uint8_t giver, uint8_t receiver, uint8_t cardToShare, bool isGiving) {
+		Action a;
+		a.base.type = SHARE;
+		a.share.player_id = giver;
+		a.share.receiving_player_id = receiver;
+		a.share.target_city = cardToShare;
+		a.share.is_giving = isGiving;
+		return a;
+	};
 
 	// PRE-CALCULATE CURERS: Array mapping ColorType (0-3) to a Player ID
 	uint8_t designatedCurers[ColorType::COUNT];
@@ -1422,7 +1368,6 @@ void GameState::AddShareTurns(TurnList& list) const
 			ColorType cardColor = CardRegistry::GetColor(cardId);
 
 			// FILTER 1: Is the passive player the DESIGNATED CURER for this color?
-			// If not, we do not want to give them this card.
 			if (designatedCurers[cardColor] == otherPlayer) {
 
 				uint8_t rendezvous = (activeRole == Role::Researcher) ? otherCity : cardId;
@@ -1432,7 +1377,8 @@ void GameState::AddShareTurns(TurnList& list) const
 
 					// If we made it to the rendezvous AND the other player is waiting there
 					if (rendezvous == otherCity && shareMacro.count < actions_left) {
-						shareMacro.Add(Action(SHARE, true, rendezvous, activePlayer, otherPlayer));
+						// Active builds path, then actively gives it away
+						shareMacro.Add(MakeShareAction(activePlayer, otherPlayer, cardId, true));
 					}
 
 					// We add the macro EVEN IF the share wasn't added. 
@@ -1454,7 +1400,6 @@ void GameState::AddShareTurns(TurnList& list) const
 			ColorType cardColor = CardRegistry::GetColor(cardId);
 
 			// FILTER 1: Are WE the DESIGNATED CURER for this color?
-			// If not, we shouldn't be taking it.
 			if (designatedCurers[cardColor] == activePlayer) {
 
 				uint8_t rendezvous = (otherRole == Role::Researcher) ? otherCity : cardId;
@@ -1464,7 +1409,8 @@ void GameState::AddShareTurns(TurnList& list) const
 
 					// If we made it to the rendezvous AND the other player is waiting there
 					if (rendezvous == otherCity && shareMacro.count < actions_left) {
-						shareMacro.Add(Action(SHARE, false, rendezvous, activePlayer, otherPlayer));
+						// Active builds path, then actively takes it
+						shareMacro.Add(MakeShareAction(otherPlayer, activePlayer, cardId, false));
 					}
 
 					// Again, add the macro so the AI can evaluate "getting closer" as a good move.
@@ -1475,7 +1421,6 @@ void GameState::AddShareTurns(TurnList& list) const
 			}
 		}
 	}
-
 }
 
 void GameState::AddTreatTurns(TurnList& list) const
@@ -1632,6 +1577,37 @@ void GameState::AddWalkTurn(TurnList& list) const
 		Turn driveTurn;
 		driveTurn.Add(Action(DRIVE, MapData::adjacency[currentCity][i], currentPlayer, currentPlayer));
 		list.Add(driveTurn);
+	}
+}
+
+void GameState::HandleLimits()
+{
+	int amount;
+	for (int player_id = 0; player_id < players.count; player_id++) {
+		int hand_size = players.GetHandSize(player_id);
+		if (hand_size > HAND_LIMIT) {
+			amount = hand_size - HAND_LIMIT;
+			for (int i = 0; i < amount; i++) {
+				// GetBestCardToDiscard protects cure cards & checks tactical value
+				uint8_t worst_card = GetBestCardToDiscard(player_id);
+				if (worst_card != 255) {
+					// This properly routes the card to the discard pile
+					DoDiscardPlayerCard(player_id, worst_card);
+				}
+			}
+		}
+	}
+
+	int station_count = cityState.GetStationCount();
+	if (station_count > MAX_RESEARCH_LAB_COUNT) {
+		amount = station_count - MAX_RESEARCH_LAB_COUNT;
+		for (int i = 0; i < amount; i++) {
+			// GetTheWorstStation uses MapData to find the most redundant station
+			uint8_t worst_station = GetTheWorstStation();
+			if (worst_station != 255) {
+				DoRemoveStation(worst_station);
+			}
+		}
 	}
 }
 
@@ -1971,7 +1947,8 @@ bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_
 	if (use_events) {
 		if (players.DoPlayersHaveEventCard(EventCardID::Airlift)) {
 			// Airlift is an instant teleport. Best possible path.
-			out_path.Add(Action(AIRLIFT, target_city, player_id, player_id));
+			uint8_t airlift_owner = players.GetOwnerOf(EventCardID::Airlift);
+			out_path.Add(Action(AIRLIFT, target_city, airlift_owner, player_id));
 			return true;
 		}
 	}

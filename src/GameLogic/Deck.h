@@ -102,7 +102,7 @@ struct StackDeck {
     inline int Count() const { return top_index; }
 
     // Shuffles ONLY the current Draw Pile (0 to top_index)
-    void Shuffle(std::mt19937* rng) {
+    void Shuffle(std::minstd_rand* rng) {
         std::shuffle(cards, cards + top_index, *rng);
     }
 
@@ -160,7 +160,7 @@ struct StackDeck {
 struct PlayerDeck : public StackDeck<64> {
     // ?Might use 64 instead of 60+-=PLAYER_DECK_SIZE to keep it aligned to cache lines?
    
-    void Init(std::mt19937* rng) {
+    void Init(std::minstd_rand* rng) {
         top_index = PLAYER_DECK_SIZE;
         discard_index = 64;
         for (uint8_t i = 0; i < 64; i++) {
@@ -189,7 +189,7 @@ struct InfectionDeck : public StackDeck<INFECTION_DECK_SIZE> {
     // "Shuffle the Discard Pile and put it on TOP of the Draw Pile."
     // In our structure, the "Discard Pile" is cards[top_index...47].
 
-    void Init(std::mt19937 *rng) {
+    void Init(std::minstd_rand* rng) {
         top_index = INFECTION_DECK_SIZE;
         discard_index = INFECTION_DECK_SIZE;
         for (uint8_t i = 0; i < INFECTION_DECK_SIZE; i++) {
@@ -245,7 +245,7 @@ struct InfectionDeck : public StackDeck<INFECTION_DECK_SIZE> {
         cards[top_index - 1 - idx5] = orig[5];
     }
 
-    inline void Intensify(std::mt19937* rng) {
+    inline void Intensify(std::minstd_rand* rng) {
         int dCount = INFECTION_DECK_SIZE - discard_index;
 
         // Safety check: if discard pile is empty, do nothing!

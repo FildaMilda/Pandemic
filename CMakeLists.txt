@@ -119,3 +119,26 @@ add_custom_command(TARGET pandemic_godot POST_BUILD
         "${CMAKE_SOURCE_DIR}/godot/pandemic/bin/"
     COMMENT "Moving library to Godot project..."
 )
+
+# --- Test Configuration ---
+
+# 1. Collect all your source files EXCEPT Main.cpp 
+# (Because TestMain.cpp will provide its own main function)
+file(GLOB_RECURSE GAME_SOURCES 
+    "src/GameLogic/*.cpp"
+    "src/AI/*.cpp"
+)
+
+# 2. Create the Test Executable
+add_executable(PandemicTests 
+    tests/TestMain.cpp 
+    tests/TestLogic.cpp
+    ${GAME_SOURCES}
+)
+
+# 3. Include directories
+target_include_directories(PandemicTests PRIVATE 
+    src/GameLogic 
+    src/AI 
+    extern
+)

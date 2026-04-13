@@ -12,11 +12,12 @@
 #include <cassert>
 #include <array>
 #include <cstdint>
+#include <random>
 
 struct GameState {
 	CityState cityState;
 	Players players;
-	std::mt19937* rng_ptr;
+	std::minstd_rand rng;
 	GameFlags gameFlags;
 	Decks decks;
 	State currentState;
@@ -24,7 +25,7 @@ struct GameState {
 	void Setup(Difficulty diff, uint8_t player_count, std::mt19937* externalRng);
 	void InfectCitiesSetup();
 	void DealPlayerCards();
-	void InsertEpidemicCards(std::mt19937* rng, Difficulty diff);
+	void InsertEpidemicCards(Difficulty diff);
 	void SetRoles();
 
 	// -------Actions-------
@@ -39,9 +40,9 @@ struct GameState {
 		DoMedicMovementPassive(target_player, cityId);
 	}
 	inline void DoCharterFlight(uint8_t cityId, uint8_t exec_player, uint8_t target_player) {
-		players.SetLocation(target_player, cityId);
 		players.RemoveCard(exec_player, players.GetLocation(exec_player));
-		decks.player_deck.AddToDiscard(cityId);
+		decks.player_deck.AddToDiscard(players.GetLocation(exec_player));
+		players.SetLocation(target_player, cityId);
 		DoMedicMovementPassive(target_player, cityId);
 	}
 	inline void DoShuttleFlight(uint8_t cityId, uint8_t target_player) {
@@ -266,7 +267,7 @@ struct GameState {
 		3. Intensify: Reshuffle just the cards in the Infection Discard Pile and
 		place them on top of the Infection Deck.
 		*/
-		decks.infection_deck.Intensify(rng_ptr);
+		decks.infection_deck.Intensify(&rng);
 	}
 
 	inline void UpdateEradicationFlag() {
@@ -295,6 +296,7 @@ struct GameState {
 	void AddTreatTurns(TurnList& list) const;
 	void AddBuildTurns(TurnList& list) const;
 	void AddWalkTurn(TurnList& list) const;
+	void HandleLimits(); // Handles Hand and Station Limits
 
 	void Execute(Action action);
 	void HandleOutbreak(uint8_t city_id, ColorType color);

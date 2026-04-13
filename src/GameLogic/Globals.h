@@ -130,4 +130,62 @@ const std::array<std::string, NUMBER_OF_CITIES_PER_COLOR> RED_CITIES = {
 	"Ho Chi Minh City"
 };
 
+enum class City {
+	// Blue Cities (0-11)
+	Atlanta,
+	SanFrancisco,
+	Chicago,
+	Montreal,
+	NewYork,
+	Washington,
+	London,
+	Madrid,
+	Paris,
+	Essen,
+	Milan,
+	SaintPetersburg,
+
+	// Yellow Cities (12-23)
+	LosAngeles,
+	MexicoCity,
+	Miami,
+	Bogota,
+	Lima,
+	Santiago,
+	BuenosAires,
+	SaoPaulo,
+	Lagos,
+	Khartoum,
+	Kinshasa,
+	Johannesburg,
+
+	// Black Cities (24-35)
+	Algiers,
+	Cairo,
+	Istanbul,
+	Riyadh,
+	Moscow,
+	Baghdad,
+	Tehran,
+	Karachi,
+	Delhi,
+	Mumbai,
+	Kolkata,
+	Chennai,
+
+	// Red Cities (36-47)
+	Beijing,
+	Shanghai,
+	Seoul,
+	Tokyo,
+	Osaka,
+	Taipei,
+	HongKong,
+	Bangkok,
+	Jakarta,
+	Manila,
+	Sydney,
+	HoChiMinhCity
+};
+
 #endif

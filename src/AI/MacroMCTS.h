@@ -3,9 +3,10 @@
 #include <vector>
 #include <cmath>
 #include <random>
+#include <algorithm>
 
 struct MacroMCTSNode {
-    int parent_id;
+    int parent_id;  
     int first_child_id;
     int next_sibling_id;
 
@@ -13,15 +14,14 @@ struct MacroMCTSNode {
     TurnList untried_turns; // Remaining macros to explore
 
     int visits;
-    double total_score;     // Using double because Pandemic requires heuristic scoring
+    double total_score;     
+    double max_score;       // Track max score for cooperative search
 
     // Fast constructor
     MacroMCTSNode(int parent, const Turn& move, const GameState& state)
         : parent_id(parent), first_child_id(-1), next_sibling_id(-1),
-        move_taken(move), visits(0), total_score(0.0)
+        move_taken(move), visits(0), total_score(0.0), max_score(-9999999.0)
     {
-        // We assume you wrapped all your AddCure, AddTreat, AddBuild 
-        // functions into one master generator:
         state.GetPolicyTurns(untried_turns);
     }
 };
@@ -30,7 +30,7 @@ class MacroMCTS {
 private:
     std::vector<MacroMCTSNode> arena;
     const double UCT_CONSTANT = 1.41421356; // sqrt(2)
-    int max_rollout_depth = 50;
+    int max_rollout_depth = 25;
 
     // Fast random number generator
     std::mt19937 rng;
@@ -56,7 +56,6 @@ public:
             // ==========================================
             // 1. SELECTION (Traverse down the tree)
             // ==========================================
-            // While we have no untried moves AND we have at least one child
             while (arena[node_id].untried_turns.count == 0 && arena[node_id].first_child_id != -1) {
                 node_id = SelectBestChildUCB(node_id);
                 state.Execute(arena[node_id].move_taken);
@@ -93,6 +92,7 @@ public:
             while (node_id != -1) {
                 arena[node_id].visits++;
                 arena[node_id].total_score += score;
+                arena[node_id].max_score = std::max(arena[node_id].max_score, score);
                 node_id = arena[node_id].parent_id;
             }
         }
@@ -102,30 +102,51 @@ public:
     }
 
 private:
-    // UCB1 Formula Implementation
+    // UCB1 Formula Implementation tweaked for Stochastic Cooperative Search
     int SelectBestChildUCB(int parent_id) {
         int best_child = -1;
         double best_uct = -9999999.0;
         double log_parent_visits = std::log(arena[parent_id].visits);
 
+        // First pass: Find min and max exploitation values to normalize scores dynamically
+        double min_exploit = 9999999.0;
+        double max_exploit = -9999999.0;
         int child_id = arena[parent_id].first_child_id;
+        
+        while (child_id != -1) {
+            MacroMCTSNode& child = arena[child_id];
+            double avg_score = child.total_score / child.visits;
+            // Mix Average and Max to prevent random bad luck from tanking correct branches
+            double mixed_score = (avg_score + child.max_score) / 2.0; 
+            
+            if (mixed_score > max_exploit) max_exploit = mixed_score;
+            if (mixed_score < min_exploit) min_exploit = mixed_score;
+            
+            child_id = child.next_sibling_id;
+        }
+        
+        double exploit_range = max_exploit - min_exploit;
+        if (exploit_range < 1e-6) exploit_range = 1.0; // Prevent divide by zero
 
-        // Loop through all siblings
+        // Second pass: Calculate normalized UCB
+        child_id = arena[parent_id].first_child_id;
         while (child_id != -1) {
             MacroMCTSNode& child = arena[child_id];
 
-            // The UCB1 Equation
-            // $UCT = \frac{W_i}{N_i} + c \sqrt{\frac{\ln N_p}{N_i}}$
-            double exploit = child.total_score / child.visits;
+            double avg_score = child.total_score / child.visits;
+            double mixed_score = (avg_score + child.max_score) / 2.0;
+            
+            // Normalize exploit between 0.0 and 1.0 so UCT_CONSTANT behaves predictably
+            double normalized_exploit = (mixed_score - min_exploit) / exploit_range;
             double explore = UCT_CONSTANT * std::sqrt(log_parent_visits / child.visits);
-            double uct_value = exploit + explore;
+            double uct_value = normalized_exploit + explore;
 
             if (uct_value > best_uct) {
                 best_uct = uct_value;
                 best_child = child_id;
             }
 
-            child_id = child.next_sibling_id; // Move to next sibling
+            child_id = child.next_sibling_id;
         }
 
         return best_child;

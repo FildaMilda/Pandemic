@@ -267,4 +267,5 @@ struct CityState {
     void Print() const;
 };
 
+
 #endif
