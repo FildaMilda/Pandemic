@@ -1,0 +1,97 @@
+[gd_scene load_steps=2 format=3 uid="uid://dkpqmaxy00000"]
+
+[ext_resource type="Script" path="res://scripts/forecast_popup.gd" id="1_fcp"]
+
+[node name="ForecastPopup" type="PanelContainer"]
+custom_minimum_size = Vector2(450, 350)
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -225.0
+offset_top = -175.0
+offset_right = 225.0
+offset_bottom = 175.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_fcp")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="Label" parent="VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Forecast: Rearrange Top 6 Cards"
+horizontal_alignment = 1
+
+[node name="Instructions" type="Label" parent="VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Click a card on the left to add it to the new order on the right."
+horizontal_alignment = 1
+autowrap_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="HBox" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="AvailableSection" type="VBoxContainer" parent="VBox/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="VBox/HBox/AvailableSection"]
+layout_mode = 2
+text = "Available Cards"
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/HBox/AvailableSection"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="List" type="VBoxContainer" parent="VBox/HBox/AvailableSection/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SelectedSection" type="VBoxContainer" parent="VBox/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="VBox/HBox/SelectedSection"]
+layout_mode = 2
+text = "New Order (Top -> Bottom)"
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="VBox/HBox/SelectedSection"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="List" type="VBoxContainer" parent="VBox/HBox/SelectedSection/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Buttons" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="ResetBtn" type="Button" parent="VBox/Buttons"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "Reset"
+
+[node name="ApplyBtn" type="Button" parent="VBox/Buttons"]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+text = "Apply"
+
+[node name="CancelBtn" type="Button" parent="VBox/Buttons"]
+custom_minimum_size = Vector2(80, 0)
+layout_mode = 2
+text = "Cancel"

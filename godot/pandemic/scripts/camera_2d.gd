@@ -49,3 +49,14 @@ func _calculate_min_zoom():
 	var min_zoom_x = screen_size.x / map_size.x
 	var min_zoom_y = screen_size.y / map_size.y
 	min_zoom = max(min_zoom_x, min_zoom_y)
+
+func focus_on_position(target_pos: Vector2, target_zoom: float = 1.6):
+	target_zoom = clamp(target_zoom, min_zoom, max_zoom)
+	var view_size = get_viewport_rect().size / target_zoom
+	
+	target_pos.x = clamp(target_pos.x, limit_left + view_size.x/2, limit_right - view_size.x/2)
+	target_pos.y = clamp(target_pos.y, limit_top + view_size.y/2, limit_bottom - view_size.y/2)
+	
+	var tween = create_tween().set_parallel(true)
+	tween.tween_property(self, "position", target_pos, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "zoom", Vector2(target_zoom, target_zoom), 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

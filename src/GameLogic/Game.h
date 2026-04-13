@@ -136,19 +136,19 @@ struct GameState {
 		// If so, the card has to be deleted from the game
 		// So we dont put it back into the discard pile
 
-		players.RemoveCard(executing_player_id, event_card_id);
-
-		if (gameFlags.GetContingencyPlannerSlot() != event_card_id) {
-			decks.player_deck.AddToDiscard(event_card_id);
+		if (gameFlags.GetContingencyPlannerSlot() == event_card_id) {
+			gameFlags.EmptyContingencyPlannerSlot();
 			return;
 		}
 
-		gameFlags.EmptyContingencyPlannerSlot();
+		players.RemoveCard(executing_player_id, event_card_id);
+		decks.player_deck.AddToDiscard(event_card_id);
 	}
 
 	// ----Roles----
 	inline void DoContingencyPlannerTake(uint8_t eventCardId) {
 		gameFlags.SetContingencyPlannerSlot(eventCardId);
+		decks.player_deck.RemoveDiscard(eventCardId);
 	}
 
 	inline void DoDispatcher(uint8_t playerId, uint8_t cityId) {
@@ -283,6 +283,7 @@ struct GameState {
 	void GetPossibleActions(ActionList& list) const;
 	void GetFilteredActions(ActionList& list) const;
 	void AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
+	void AddConPlannerActions(ActionList& list) const;
 	void AddDispatcherActions(ActionList& list) const;
 	void AddOpsExpertActions(ActionList& list) const;
 	void AddFilteredDispatcherActions(ActionList& list) const;

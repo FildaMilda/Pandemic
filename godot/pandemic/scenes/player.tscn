@@ -9,7 +9,6 @@ corner_radius_bottom_right = 1024
 corner_radius_bottom_left = 1024
 
 [node name="Node2D" type="Node2D"]
-z_index = 1
 scale = Vector2(0.35, 0.35)
 script = ExtResource("1_4flbx")
 
@@ -31,6 +30,8 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_3vyb7")
 layout_mode = 1
 offset_right = 40.0
 offset_bottom = 40.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
 text = "P0"
 horizontal_alignment = 1
 vertical_alignment = 1

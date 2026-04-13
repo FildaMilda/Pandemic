@@ -26,14 +26,20 @@ void PandemicGame::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_player_count"), &PandemicGame::get_player_count);
     ClassDB::bind_method(D_METHOD("get_player_role", "player_id"), &PandemicGame::get_player_role);
     ClassDB::bind_method(D_METHOD("get_current_player"), &PandemicGame::get_current_player);
+    ClassDB::bind_method(D_METHOD("is_planner_empty"), &PandemicGame::is_planner_empty);
+    ClassDB::bind_method(D_METHOD("get_planner_slot"), &PandemicGame::get_planner_slot);
 
     // --- Map Data ---
     ClassDB::bind_method(D_METHOD("get_city_infection", "city_id", "color_id"), &PandemicGame::get_city_infection);
     ClassDB::bind_method(D_METHOD("has_research_station", "city_id"), &PandemicGame::has_research_station);
+    ClassDB::bind_method(D_METHOD("get_stations"), &PandemicGame::get_stations);
+    ClassDB::bind_method(D_METHOD("get_forecast_cards"), &PandemicGame::get_forecast_cards);
+    ClassDB::bind_method(D_METHOD("do_forecast"), &PandemicGame::do_forecast);
 
     ClassDB::bind_method(D_METHOD("get_card_type", "card_id"), &PandemicGame::get_card_type);
     ClassDB::bind_method(D_METHOD("get_card_name", "card_id"), &PandemicGame::get_card_name);
     ClassDB::bind_method(D_METHOD("get_card_color", "card_id"), &PandemicGame::get_card_color);
+    ClassDB::bind_method(D_METHOD("get_event_action_id", "card_id"), &PandemicGame::get_event_action_id);
 
     ClassDB::bind_method(D_METHOD("get_city_neighbors", "city_id"), &PandemicGame::get_city_neighbors);
 }
@@ -50,6 +56,7 @@ void PandemicGame::setup_game(int seed) {
 TypedArray<int> godot::PandemicGame::get_possible_actions()
 {
     ActionList list;
+    list.count = 0;
     game.GetPossibleActions(list);
 
     TypedArray<int> godot_list;
@@ -63,6 +70,8 @@ void godot::PandemicGame::execute_action(int64_t p_raw_data)
 {
     Action action;
     action.raw_data = static_cast<uint32_t>(p_raw_data);
+    godot::print_line(p_raw_data);
+    godot::print_line(game.gameFlags.GetActivePlayer());
     game.Execute(action);
 }
 
@@ -78,7 +87,7 @@ int PandemicGame::get_player_location(int player_id) {
 
 Array godot::PandemicGame::get_player_hand(int player_id)
 {
-    uint64_t temp_hand = game.players.hands[game.gameFlags.GetActivePlayer()];
+    uint64_t temp_hand = game.players.hands[player_id];
     Array hand_array;
 
     while (temp_hand > 0) {
@@ -123,6 +132,37 @@ int godot::PandemicGame::get_current_player()
     return (int)game.gameFlags.GetActivePlayer();
 }
 
+Array godot::PandemicGame::get_stations()
+{
+    Array stations;
+    uint64_t mask = game.cityState.GetStationMask();
+
+    while (mask != 0)
+    {
+        int index = std::countr_zero(mask);
+        stations.append(index);
+        mask &= (mask - 1);
+    }
+
+    return stations;
+}
+
+bool godot::PandemicGame::is_planner_empty()
+{
+    return game.gameFlags.IsContingencyPlannerSlotEmpty();
+}
+
+int godot::PandemicGame::get_planner_slot()
+{
+    return game.gameFlags.GetContingencyPlannerSlot();
+}
+
+void godot::PandemicGame::do_forecast(int card0, int card1, int card2, int card3, int card4, int card5)
+{
+    uint8_t owner = game.players.GetOwnerOf(EventCardID::Forecast);
+    game.DoForecast(owner, card0, card1, card2, card3, card4, card5);
+}
+
 int godot::PandemicGame::get_card_type(int card_id)
 {
     return (int)CardRegistry::GetType(card_id);
@@ -136,6 +176,37 @@ String godot::PandemicGame::get_card_name(int card_id)
 int godot::PandemicGame::get_card_color(int card_id)
 {
     return (int)CardRegistry::GetColor(card_id);
+}
+
+int godot::PandemicGame::get_event_action_id(int card_id)
+{
+    if (card_id == EventCardID::Airlift) return ActionType::AIRLIFT;
+    if (card_id == EventCardID::GovGrant) return ActionType::GOVERNMENT_GRANT;
+    if (card_id == EventCardID::ResilientPopulation) return ActionType::RESILIENT_POPULATION;
+    if (card_id == EventCardID::Forecast) return ActionType::FORECAST;
+    if (card_id == EventCardID::OneQuietNight) return ActionType::ONE_QUIET_NIGHT;
+    else godot::print_error("Wrong card_id {}", card_id);
+}
+
+Array godot::PandemicGame::get_forecast_cards()
+{
+    Array forecast_array;
+    uint8_t out_cards[6];
+
+    // PeekForecastCards returns the number of valid cards it pulled from the Draw Pile
+    int count = game.decks.infection_deck.PeekForecastCards(out_cards);
+
+    // If the draw deck is empty, return the empty array
+    if (count == 0) {
+        return forecast_array;
+    }
+
+    // Append the valid cards to the Godot Array
+    for (int i = 0; i < count; i++) {
+        forecast_array.append(out_cards[i]);
+    }
+
+    return forecast_array;
 }
 
 Array godot::PandemicGame::get_city_neighbors(int city_id)

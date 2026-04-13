@@ -12,9 +12,6 @@ template <int TSize>
 struct StackDeck {
     uint8_t cards[TSize];
 
-    // Points to the index JUST PAST the top card.
-    // If top_index == 10, it means cards[0]...cards[9] are in the deck.
-    // cards[10]...cards[TSize-1] are in the discard pile.
     uint8_t top_index;
     uint8_t discard_index;
 
@@ -46,15 +43,6 @@ struct StackDeck {
             cards[top_index++] = cardId;
         }
     }
-
-    // Returns the Top Card and moves the pointer down.
-    // The card remains in memory (in the "Discarded" zone).
-    /*
-    inline uint8_t Draw() {
-        if (top_index == 0) return 255; // Empty
-        return cards[--top_index];
-    }
-    */
 
     inline uint8_t DrawAndRemove() {
         if (top_index == 0) return 255;
@@ -99,7 +87,32 @@ struct StackDeck {
         return bottomCard;
     }
 
+    inline bool RemoveDiscard(uint8_t card_id) {
+        // Loop through the valid discard pile range
+        for (int i = discard_index; i < TSize; ++i) {
+            if (cards[i] == card_id) {
+                // We found the card. 
+                // Shift all cards "above" it in the discard pile down by 1 slot.
+                for (int j = i; j > discard_index; --j) {
+                    cards[j] = cards[j - 1];
+                }
+
+                // Optional but consistent with your other methods: 
+                // Clear the old top of the discard pile
+                cards[discard_index] = 255;
+
+                // Shrink the discard pile (moves the starting index up)
+                discard_index++;
+
+                return true; // Successfully removed
+            }
+        }
+
+        return false; // Card not found
+    }
+
     inline int Count() const { return top_index; }
+    inline int DiscardCount() const { return TSize - discard_index; }
 
     // Shuffles ONLY the current Draw Pile (0 to top_index)
     void Shuffle(std::minstd_rand* rng) {
@@ -288,7 +301,6 @@ struct InfectionDeck : public StackDeck<INFECTION_DECK_SIZE> {
 
         return num_cards;
     }
-
 };
 
 struct Decks {

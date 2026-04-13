@@ -3,19 +3,38 @@
 [ext_resource type="Script" uid="uid://cx32fev1xrxnt" path="res://scripts/card.gd" id="1_d81rb"]
 
 [node name="Card" type="PanelContainer"]
-custom_minimum_size = Vector2(120, 180)
-offset_right = 40.0
-offset_bottom = 40.0
+custom_minimum_size = Vector2(110, 40)
 script = ExtResource("1_d81rb")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 4
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ColorIndicator" type="Panel" parent="MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(8, 0)
 layout_mode = 2
 
-[node name="ColorRect" type="ColorRect" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 20)
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer"]
 layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
 
-[node name="Label" type="Label" parent="VBoxContainer"]
+[node name="CardName" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
-text = "City name"
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 11
+text = "City"
+vertical_alignment = 1
+clip_text = true
+
+[node name="EventBadge" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 9
+text = "EVENT"

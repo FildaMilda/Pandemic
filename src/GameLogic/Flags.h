@@ -60,10 +60,10 @@ struct GameFlags {
         return (uint8_t)EventCardID::Airlift + contingency_planner_slot;
     }
     inline bool IsContingencyPlannerSlotEmpty() const {
-        return contingency_planner_slot == 8;
+        return contingency_planner_slot == 7;
     }
     inline void EmptyContingencyPlannerSlot() {
-        contingency_planner_slot = 8;
+        contingency_planner_slot = 7;
     }
 
     inline void SetOperationsExpertMovFlag(bool isUsed) {

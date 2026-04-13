@@ -39,10 +39,16 @@ namespace godot {
         int get_player_count();
         int get_player_role(int player_id);
         int get_current_player();
+        Array get_stations();
+        bool is_planner_empty();
+        int get_planner_slot();
+        void do_forecast(int card0, int card1, int card2, int card3, int card4, int card5);
 
         int get_card_type(int card_id);
         String get_card_name(int card_id);
         int get_card_color(int card_id);
+        int get_event_action_id(int card_id);
+        Array get_forecast_cards();
 
         Array get_city_neighbors(int city_id);
     };

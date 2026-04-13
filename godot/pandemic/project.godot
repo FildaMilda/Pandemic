@@ -24,3 +24,7 @@ Globals="*res://scripts/globals.gd"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+
+[gui]
+
+theme/custom_font="res://assets/Oswald-Medium.ttf"

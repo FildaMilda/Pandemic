@@ -1,0 +1,40 @@
+﻿[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="BottomBar" type="HBoxContainer" parent="HUD"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -200.0
+offset_right = -12.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="CardContainer" type="CenterContainer" parent="HUD/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CardHUD" parent="HUD/BottomBar/CardContainer" instance=ExtResource("6_tefeu")]
+layout_mode = 2
+
+[node name="RoleContainer" type="CenterContainer" parent="HUD/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.6
+
+[node name="RoleHUD" parent="HUD/BottomBar/RoleContainer" instance=ExtResource("7_rolehud")]
+layout_mode = 2
+
+[node name="ActionContainer" type="CenterContainer" parent="HUD/BottomBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ActionMenu" parent="HUD/BottomBar/ActionContainer" instance=ExtResource("5_tbgi4")]
+visible = false
+layout_mode = 2
+
+[node name="EventPopup" parent="HUD" instance=ExtResource("8_event")]

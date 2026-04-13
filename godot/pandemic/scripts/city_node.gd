@@ -11,6 +11,7 @@ extends Area2D
 @onready var blue_counter = $DiseaseCounters/Blue
 @onready var black_counter = $DiseaseCounters/Black
 @onready var yellow_counter = $DiseaseCounters/Yellow
+@onready var station_icon = $StationIcon
 
 @export var blue_icon: Texture2D
 @export var yellow_icon: Texture2D
@@ -24,10 +25,44 @@ var highlight: bool = false:
 		highlight = value
 		_update_highlight()
 
+var highlight_color: Color = Color(0.1, 0.8, 0.3) # Default safe green
+
+var highlight_pulse: float = 0.0
+
+var has_station: bool = false:
+	set(value):
+		has_station = value
+		if station_icon:
+			station_icon.visible = has_station
+
+func _process(delta):
+	if highlight:
+		highlight_pulse += delta * 3.5 # Slower pulse speed
+		queue_redraw()
+
+func _draw():
+	if highlight:
+		# Smaller pulsing radius and more subtle transparency
+		var alpha = (sin(highlight_pulse) + 1.0) / 4.0 + 0.3 # Pulses between 0.3 and 0.8
+		var radius = 17.5 + (sin(highlight_pulse) * 1.5) # Pulses tightly between 16 and 19
+		
+		# Draw a glowing aura and ring behind the city
+		draw_circle(sprite.position, radius, Color(highlight_color, alpha * 0.25))
+		draw_arc(sprite.position, radius, 0, TAU, 32, Color(highlight_color, alpha), 2.0, true)
+
 func _ready():
 	name_label.text = city_name
 	_update_visuals()
 	self.input_event.connect(_on_input_event)
+	
+	# Automatically move the station icon next to the text
+	var font = name_label.get_theme_font("font")
+	var font_size = name_label.get_theme_font_size("font_size")
+	if font:
+		var text_width = font.get_string_size(city_name, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size).x
+		if station_icon:
+			# Shift it to the left of the text bounds, minus a small padding
+			station_icon.position.x = -(text_width / 2.0) - 8.0
 
 func set_counter(color : Globals.CityColor, value : int):
 	if color == Globals.CityColor.BLUE:
@@ -60,7 +95,6 @@ func _update_visuals():
 				s.texture = red_icon
 				
 func _update_highlight():
-	if highlight:
-		sprite.self_modulate = Color(1.5, 1.5, 1.5, 1.0) 
-	else:
-		sprite.self_modulate = Color.WHITE
+	if not highlight:
+		highlight_pulse = 0.0
+	queue_redraw()

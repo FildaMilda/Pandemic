@@ -473,10 +473,7 @@ void GameState::GetPossibleActions(ActionList& list) const
 	// ===== Roles =====
 	switch (players.GetRole(currentPlayer)) {
 	case Role::Contingency:
-		if (!gameFlags.IsContingencyPlannerSlotEmpty()) {
-			AddEventAction(list, gameFlags.GetContingencyPlannerSlot(), currentPlayer);
-		}
-		// TODO: Add action to TAKE the card
+		AddConPlannerActions(list);
 		break;
 
 	case Role::Dispatcher:
@@ -805,7 +802,6 @@ void GameState::GetFilteredActions(ActionList& list) const
 		if (!gameFlags.IsContingencyPlannerSlotEmpty()) {
 			AddFilteredEventAction(list, gameFlags.GetContingencyPlannerSlot(), currentPlayer);
 		}
-		//TODO add the TAKE action
 		break;
 
 	case Role::Dispatcher:
@@ -831,7 +827,7 @@ void GameState::AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t 
 		break;
 
 	case EventCardID::Forecast:
-		// TODO
+		list.Add(FORECAST);
 		break;
 
 	case EventCardID::ResilientPopulation:
@@ -853,6 +849,21 @@ void GameState::AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t 
 			}
 		}
 		break;
+	}
+}
+
+void GameState::AddConPlannerActions(ActionList& list) const
+{
+	uint8_t currentPlayer = gameFlags.GetActivePlayer();
+
+	if (!gameFlags.IsContingencyPlannerSlotEmpty()) {
+		AddEventAction(list, gameFlags.GetContingencyPlannerSlot(), currentPlayer);
+	}
+	auto discard_pile = decks.player_deck.GetDiscardPile();
+	for (const auto& card : discard_pile) {
+		if (CardRegistry::IsEvent(card)) {
+			list.Add(PLANNER_TAKE, card, currentPlayer, currentPlayer);
+		}
 	}
 }
 
