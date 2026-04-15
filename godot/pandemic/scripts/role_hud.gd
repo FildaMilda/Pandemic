@@ -4,13 +4,13 @@ signal action_requested(action_id: int)
 signal dispatcher_target_selected(player_id: int)
 signal expert_move_toggled(active: bool)
 
-@onready var role_title: Label = $VBox/TopHBox/RoleTitle
-@onready var info_button: Button = $VBox/TopHBox/InfoButton
+@onready var role_title: Label = $MarginContainer/VBox/TopHBox/RoleTitle
+@onready var info_button: Button = $MarginContainer/VBox/TopHBox/InfoButton
 @onready var role_info_popup: PanelContainer = $RoleInfoPopup
 @onready var role_info_desc: RichTextLabel = $RoleInfoPopup/MarginContainer/VBox/DescriptionLabel
 @onready var role_info_close: Button = $RoleInfoPopup/MarginContainer/VBox/CloseButton
-@onready var take_event_button: Button = $VBox/TakeEventButton
-@onready var expert_move_button: Button = $VBox/ExpertMoveButton
+@onready var take_event_button: Button = $MarginContainer/VBox/TakeEventButton
+@onready var expert_move_button: Button = $MarginContainer/VBox/ExpertMoveButton
 @onready var event_selection: PanelContainer = $EventSelection
 @onready var events_container: VBoxContainer = $EventSelection/VBox/EventsContainer
 @onready var cancel_button: Button = $EventSelection/VBox/CancelButton
@@ -38,7 +38,7 @@ func _ready() -> void:
 	dispatcher_container = HBoxContainer.new()
 	dispatcher_container.alignment = BoxContainer.ALIGNMENT_CENTER
 	dispatcher_container.hide()
-	$VBox.add_child(dispatcher_container)
+	$MarginContainer/VBox.add_child(dispatcher_container)
 
 func _on_info_pressed() -> void:
 	if current_player != -1 and game != null:
@@ -56,6 +56,14 @@ func update_hud(_game: Node, player_id: int, allowed_actions: Array, active_disp
 	var role = game.get_player_role(player_id)
 	
 	role_title.text = _get_role_name(role)
+	
+	if role in Globals.RoleColors:
+		var style = StyleBoxFlat.new()
+		var color = Globals.RoleColors[role]
+		color.a = 0.8
+		style.bg_color = color
+		add_theme_stylebox_override("panel", style)
+
 	event_selection.hide()
 
 	if role == Globals.RoleType.Contingency:

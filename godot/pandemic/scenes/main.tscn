@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://nerd13cm7nlb"]
+[gd_scene load_steps=12 format=3 uid="uid://nerd13cm7nlb"]
 
 [ext_resource type="Texture2D" uid="uid://r426o0r1r42m" path="res://assets/map.jpg" id="1_0wfyh"]
 [ext_resource type="Script" uid="uid://cppd8jvgpomhe" path="res://scripts/main.gd" id="1_sugp2"]
@@ -7,10 +7,11 @@
 [ext_resource type="PackedScene" uid="uid://bh646kvwov5kd" path="res://scenes/action_menu.tscn" id="5_tbgi4"]
 [ext_resource type="PackedScene" uid="uid://k5iiathxgrpc" path="res://scenes/card_hud.tscn" id="6_tefeu"]
 [ext_resource type="PackedScene" uid="uid://6a54umtstsvi" path="res://scenes/role_hud.tscn" id="7_rolehud"]
-[ext_resource type="PackedScene" uid="uid://b5tpop2u1xyz" path="res://scenes/event_popup.tscn" id="8_event"]
-[ext_resource type="PackedScene" uid="uid://dfghjk2u3xyz" path="res://scenes/card_picker_popup.tscn" id="9_cardpicker"]
-[ext_resource type="PackedScene" uid="uid://cxzbop2u3xpa" path="res://scenes/player_picker_popup.tscn" id="10_playpk"]
-[ext_resource type="PackedScene" path="res://scenes/forecast_popup.tscn" id="11_forecast"]
+[ext_resource type="PackedScene" uid="uid://b5tpop2u1xy0" path="res://scenes/event_popup.tscn" id="8_event"]
+[ext_resource type="PackedScene" uid="uid://dfghjk2u3xy0" path="res://scenes/card_picker_popup.tscn" id="9_cardpicker"]
+[ext_resource type="PackedScene" uid="uid://cx0bop2u3xpa" path="res://scenes/player_picker_popup.tscn" id="10_playpk"]
+[ext_resource type="PackedScene" uid="uid://dkpqmaxy00000" path="res://scenes/forecast_popup.tscn" id="11_forecast"]
+[ext_resource type="PackedScene" path="res://scenes/top_bar.tscn" id="12_topbar"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_sugp2")
@@ -314,24 +315,33 @@ color_type = 3
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="ActionMenu" parent="HUD" instance=ExtResource("5_tbgi4")]
-visible = false
-anchors_preset = 3
-anchor_left = 1.0
+[node name="TopBar" parent="HUD" instance=ExtResource("12_topbar")]
+offset_right = 0.0
+offset_bottom = 60.0
+
+[node name="BottomBar" type="HBoxContainer" parent="HUD"]
+anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -490.0
-offset_top = -167.0
+offset_left = 10.0
+offset_top = -150.0
 offset_right = -10.0
 offset_bottom = -10.0
-grow_horizontal = 0
+grow_horizontal = 2
 grow_vertical = 0
+theme_override_constants/separation = 10
+
+[node name="CardHUD" parent="HUD/BottomBar" instance=ExtResource("6_tefeu")]
+layout_mode = 2
+
+[node name="RoleHUD" parent="HUD/BottomBar" instance=ExtResource("7_rolehud")]
+layout_mode = 2
+
+[node name="ActionMenu" parent="HUD/BottomBar" instance=ExtResource("5_tbgi4")]
+visible = false
+layout_mode = 2
 pivot_offset = Vector2(-20, -20)
-
-[node name="CardHUD" parent="HUD" instance=ExtResource("6_tefeu")]
-
-[node name="RoleHUD" parent="HUD" instance=ExtResource("7_rolehud")]
 
 [node name="EventPopup" parent="HUD" instance=ExtResource("8_event")]
 visible = false

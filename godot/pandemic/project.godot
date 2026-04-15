@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Pandemic"
-run/main_scene="uid://nerd13cm7nlb"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 

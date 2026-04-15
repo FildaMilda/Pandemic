@@ -1,0 +1,114 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/top_bar.gd" id="1_topbar"]
+[ext_resource type="Texture2D" uid="uid://dfoutbrk0000" path="res://assets/images/outbreak_marker.png" id="2_outbreak"]
+[ext_resource type="Texture2D" uid="uid://dfinfec00001" path="res://assets/images/infection_marker.png" id="3_infection"]
+
+[node name="TopBar" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 60)
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 60.0
+grow_horizontal = 2
+script = ExtResource("1_topbar")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="LeftStats" type="HBoxContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="OutbreakBox" type="HBoxContainer" parent="MarginContainer/HBoxContainer/LeftStats"]
+layout_mode = 2
+
+[node name="OutbreakIcon" type="TextureRect" parent="MarginContainer/HBoxContainer/LeftStats/OutbreakBox"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+texture = ExtResource("2_outbreak")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="OutbreaksLabel" type="Label" parent="MarginContainer/HBoxContainer/LeftStats/OutbreakBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Outbreaks: 0/8"
+vertical_alignment = 1
+
+[node name="InfectionBox" type="HBoxContainer" parent="MarginContainer/HBoxContainer/LeftStats"]
+layout_mode = 2
+
+[node name="InfectionIcon" type="TextureRect" parent="MarginContainer/HBoxContainer/LeftStats/InfectionBox"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+texture = ExtResource("3_infection")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="InfectionRateLabel" type="Label" parent="MarginContainer/HBoxContainer/LeftStats/InfectionBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Infection Rate: 2"
+vertical_alignment = 1
+
+[node name="Spacer" type="Control" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Menus" type="HBoxContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 2
+
+[node name="LastPlayerCardsBtn" type="Button" parent="MarginContainer/HBoxContainer/Menus"]
+layout_mode = 2
+text = "Last Player Cards"
+
+[node name="LastInfectionCardsBtn" type="Button" parent="MarginContainer/HBoxContainer/Menus"]
+layout_mode = 2
+text = "Last Infection Cards"
+
+[node name="PlayerDiscardBtn" type="Button" parent="MarginContainer/HBoxContainer/Menus"]
+layout_mode = 2
+text = "Player Discard Pile"
+
+[node name="InfectionDiscardBtn" type="Button" parent="MarginContainer/HBoxContainer/Menus"]
+layout_mode = 2
+text = "Infection Discard Pile"
+
+[node name="CardPopup" type="PopupPanel" parent="."]
+size = Vector2i(400, 250)
+
+[node name="MarginContainer" type="MarginContainer" parent="CardPopup"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = -4.0
+offset_bottom = -4.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ScrollContainer" type="ScrollContainer" parent="CardPopup/MarginContainer"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="CardContainer" type="HFlowContainer" parent="CardPopup/MarginContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8

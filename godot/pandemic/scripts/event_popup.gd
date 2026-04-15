@@ -1,6 +1,7 @@
 extends PanelContainer
 
 signal execute_event_requested(card_id: int)
+signal canceled()
 
 @onready var header = $MarginContainer/VBox/Header
 @onready var description = $MarginContainer/VBox/DescriptionLabel
@@ -11,7 +12,10 @@ var _card_id: int = -1
 
 func _ready() -> void:
 	use_btn.pressed.connect(_on_use_pressed)
-	cancel_btn.pressed.connect(hide)
+	cancel_btn.pressed.connect(func():
+		hide()
+		canceled.emit()
+	)
 	hide()
 
 func open(card_id: int, card_name: String, desc_text: String) -> void:

@@ -1,11 +1,11 @@
-extends CanvasLayer
+extends PanelContainer
 
 signal event_card_clicked(card_id: int)
 
 @export var card_scene: PackedScene = preload("res://scenes/Card.tscn")
-@onready var container = $HandUI/PanelContainer/MarginContainer/VBoxContainer/CardContainer
-@onready var title_label = $HandUI/PanelContainer/MarginContainer/VBoxContainer/Header/Title
-@onready var player_buttons = $HandUI/PanelContainer/MarginContainer/VBoxContainer/Header/PlayerButtons
+@onready var container = $MarginContainer/VBoxContainer/CardContainer
+@onready var title_label = $MarginContainer/VBoxContainer/Header/Title
+@onready var player_buttons = $MarginContainer/VBoxContainer/Header/PlayerButtons
 
 var _game: Node
 var _viewed_player: int = -1

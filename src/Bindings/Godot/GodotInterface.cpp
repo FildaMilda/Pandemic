@@ -11,7 +11,7 @@ void PandemicGame::_bind_methods() {
     ADD_SIGNAL(MethodInfo("game_updated"));
 
     // --- Core Game Flow ---
-    ClassDB::bind_method(D_METHOD("setup_game", "seed"), &PandemicGame::setup_game);
+    ClassDB::bind_method(D_METHOD("setup_game", "difficulty", "players", "seed"), &PandemicGame::setup_game);
     ClassDB::bind_method(D_METHOD("get_possible_actions"), &PandemicGame::get_possible_actions);
     ClassDB::bind_method(D_METHOD("execute_action", "raw_data"), &PandemicGame::execute_action);
 
@@ -19,6 +19,9 @@ void PandemicGame::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_game_state"), &PandemicGame::get_game_state);
     ClassDB::bind_method(D_METHOD("get_outbreak_count"), &PandemicGame::get_outbreak_count);
     ClassDB::bind_method(D_METHOD("get_actions_left"), &PandemicGame::get_actions_left);
+    ClassDB::bind_method(D_METHOD("get_player_discard_pile"), &PandemicGame::get_player_discard_pile);
+    ClassDB::bind_method(D_METHOD("get_infection_discard_pile"), &PandemicGame::get_infection_discard_pile);
+    ClassDB::bind_method(D_METHOD("get_infection_rate_amount"), &PandemicGame::get_infection_rate_amount);
 
     // --- Player Data ---
     ClassDB::bind_method(D_METHOD("get_player_location", "player_id"), &PandemicGame::get_player_location);
@@ -33,6 +36,7 @@ void PandemicGame::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_city_infection", "city_id", "color_id"), &PandemicGame::get_city_infection);
     ClassDB::bind_method(D_METHOD("has_research_station", "city_id"), &PandemicGame::has_research_station);
     ClassDB::bind_method(D_METHOD("get_stations"), &PandemicGame::get_stations);
+    ClassDB::bind_method(D_METHOD("get_hotspots"), &PandemicGame::get_hotspots);
     ClassDB::bind_method(D_METHOD("get_forecast_cards"), &PandemicGame::get_forecast_cards);
     ClassDB::bind_method(D_METHOD("do_forecast"), &PandemicGame::do_forecast);
 
@@ -42,14 +46,19 @@ void PandemicGame::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_event_action_id", "card_id"), &PandemicGame::get_event_action_id);
 
     ClassDB::bind_method(D_METHOD("get_city_neighbors", "city_id"), &PandemicGame::get_city_neighbors);
+
+    ClassDB::bind_method(D_METHOD("is_game_over"), &PandemicGame::is_game_over);
+    ClassDB::bind_method(D_METHOD("get_mcts_macro_action", "iterations"), &PandemicGame::get_mcts_macro_action);
+    ClassDB::bind_method(D_METHOD("clone"), &PandemicGame::clone);
+    ClassDB::bind_method(D_METHOD("test"), &PandemicGame::test);
 }
 
 PandemicGame::PandemicGame() {}
 PandemicGame::~PandemicGame() {}
 
-void PandemicGame::setup_game(int seed) {
+void PandemicGame::setup_game(int diff, int player_count, int seed) {
     rng.seed(seed);
-    game.Setup(Difficulty::INTRO, 4, &rng); //TODO: add diff and count args
+    game.Setup((Difficulty)diff, player_count, &rng);
     emit_signal("game_updated");
 }
 
@@ -66,13 +75,47 @@ TypedArray<int> godot::PandemicGame::get_possible_actions()
     return godot_list;
 }
 
-void godot::PandemicGame::execute_action(int64_t p_raw_data)
+Array godot::PandemicGame::get_player_discard_pile()
+{
+    Array cards;
+    for (const auto card : game.decks.player_deck.GetDiscardPile()) {
+        cards.push_back(card);
+    }
+    return cards;
+}
+
+Array godot::PandemicGame::get_infection_discard_pile()
+{
+    Array cards;
+    for (const auto card : game.decks.infection_deck.GetDiscardPile()) {
+        cards.push_back(card);
+    }
+    return cards;
+}
+
+godot::Dictionary godot::PandemicGame::execute_action(int64_t p_raw_data)
 {
     Action action;
     action.raw_data = static_cast<uint32_t>(p_raw_data);
-    godot::print_line(p_raw_data);
-    godot::print_line(game.gameFlags.GetActivePlayer());
-    game.Execute(action);
+    DrawnCards cards;
+    game.Execute(action, &cards);
+
+    // Pack into a Godot Dictionary
+    godot::Dictionary result;
+
+    // Add the new flag
+    result["turn_ended"] = cards.turnEnded;
+
+    // Build and add the arrays
+    godot::Array gd_player_cards;
+    for (uint8_t card : cards.drawnPlayerCards) gd_player_cards.push_back(card);
+    result["drawn_player_cards"] = gd_player_cards;
+
+    godot::Array gd_infection_cards;
+    for (uint8_t card : cards.drawnInfectionCards) gd_infection_cards.push_back(card);
+    result["drawn_infection_cards"] = gd_infection_cards;
+
+    return result;
 }
 
 // --- Getter Implementations ---
@@ -113,6 +156,11 @@ int godot::PandemicGame::get_outbreak_count()
     return (int)game.gameFlags.GetOutbreaks();
 }
 
+int godot::PandemicGame::get_infection_rate_amount()
+{
+    return (int)game.gameFlags.GetInfectionRateAmount();
+}
+
 int PandemicGame::get_actions_left() {
     return (int)game.gameFlags.GetActionsRemaining();
 }
@@ -145,6 +193,21 @@ Array godot::PandemicGame::get_stations()
     }
 
     return stations;
+}
+
+Array godot::PandemicGame::get_hotspots()
+{
+    Array hotspots;
+    uint64_t mask = game.cityState.GetHotspotMask();
+
+    while (mask != 0)
+    {
+        int index = std::countr_zero(mask);
+        hotspots.append(index);
+        mask &= (mask - 1);
+    }
+
+    return hotspots;
 }
 
 bool godot::PandemicGame::is_planner_empty()
@@ -232,6 +295,36 @@ Array godot::PandemicGame::get_city_neighbors(int city_id)
     }
 
     return neighbors;
+}
+
+Array godot::PandemicGame::get_mcts_macro_action(int iterations)
+{
+    Array actions;
+    Turn bestMacro = mcts.Search(game, iterations);
+
+    for (int i = 0; i < bestMacro.count; i++) {
+        actions.push_back((int64_t)bestMacro.actions[i].raw_data);
+    }
+
+    return actions;
+}
+
+bool godot::PandemicGame::is_game_over()
+{
+    return game.currentState != State::InProgress;
+}
+
+PandemicGame* godot::PandemicGame::clone()
+{
+    PandemicGame* cloned_node = memnew(PandemicGame);
+    cloned_node->game = this->game;
+    cloned_node->rng = this->rng;
+    return cloned_node;
+}
+
+void godot::PandemicGame::test()
+{
+    godot::print_line("Test");
 }
 
 void initialize_pandemic_module(ModuleInitializationLevel p_level) {

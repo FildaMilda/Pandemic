@@ -25,6 +25,11 @@ var highlight: bool = false:
 		highlight = value
 		_update_highlight()
 
+var is_hotspot: bool = false:
+	set(value):
+		is_hotspot = value
+		_update_highlight()
+
 var highlight_color: Color = Color(0.1, 0.8, 0.3) # Default safe green
 
 var highlight_pulse: float = 0.0
@@ -36,7 +41,7 @@ var has_station: bool = false:
 			station_icon.visible = has_station
 
 func _process(delta):
-	if highlight:
+	if highlight or is_hotspot:
 		highlight_pulse += delta * 3.5 # Slower pulse speed
 		queue_redraw()
 
@@ -45,10 +50,16 @@ func _draw():
 		# Smaller pulsing radius and more subtle transparency
 		var alpha = (sin(highlight_pulse) + 1.0) / 4.0 + 0.3 # Pulses between 0.3 and 0.8
 		var radius = 17.5 + (sin(highlight_pulse) * 1.5) # Pulses tightly between 16 and 19
-		
+
 		# Draw a glowing aura and ring behind the city
 		draw_circle(sprite.position, radius, Color(highlight_color, alpha * 0.25))
 		draw_arc(sprite.position, radius, 0, TAU, 32, Color(highlight_color, alpha), 2.0, true)
+		
+	if is_hotspot:
+		var alpha = (sin(highlight_pulse * 1.5) + 1.0) / 4.0 + 0.5
+		var radius = 23.0 + (sin(highlight_pulse * 1.8) * 2.0)
+		draw_circle(sprite.position, radius, Color(0.9, 0.1, 0.1, alpha * 0.3))
+		draw_arc(sprite.position, radius, 0, TAU, 32, Color(0.9, 0.1, 0.1, alpha), 3.0, true)
 
 func _ready():
 	name_label.text = city_name
@@ -95,6 +106,6 @@ func _update_visuals():
 				s.texture = red_icon
 				
 func _update_highlight():
-	if not highlight:
+	if not highlight and not is_hotspot:
 		highlight_pulse = 0.0
 	queue_redraw()

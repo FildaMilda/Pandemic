@@ -4,9 +4,10 @@ extends Node2D
 
 @onready var players = $Players
 @onready var cities = $Cities
-@onready var action_hud = $HUD/ActionMenu
-@onready var hand_hud = $HUD/CardHUD
-@onready var role_hud = $HUD/RoleHUD
+@onready var action_hud = $HUD/BottomBar/ActionMenu
+@onready var hand_hud = $HUD/BottomBar/CardHUD
+@onready var role_hud = $HUD/BottomBar/RoleHUD
+@onready var top_bar = $HUD/TopBar
 @onready var event_popup = $HUD/EventPopup
 @onready var card_picker_popup = $HUD/CardPickerPopup
 @onready var player_picker_popup = $HUD/PlayerPickerPopup
@@ -20,11 +21,17 @@ var active_dispatcher_target: int = -1
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	var start_time = Time.get_ticks_msec()
+	print("[DEBUG] main.tscn spawned at: ", start_time)
+
 	# Interesting seeds:
 	# Seed: 2 - Airlift and Resilient Pop start
 	# Seed: 3 - Forecast start
-	game.setup_game(42)
+	game.setup_game(Globals.game_difficulty, Globals.game_players, Globals.game_seed)
 	
+	print("[DEBUG] C++ game.setup_game() took: ", Time.get_ticks_msec() - start_time, "ms")
+	var t1 = Time.get_ticks_msec()
+
 	_create_players()
 
 	# 1. Setup City Click listeners and caching
@@ -32,6 +39,8 @@ func _ready() -> void:
 		city_nodes_by_id[city.city_id] = city
 		city.clicked.connect(_on_city_clicked)
 
+	print("[DEBUG] Node caching took: ", Time.get_ticks_msec() - t1, "ms")
+	var t2 = Time.get_ticks_msec()
 	# 2. Setup HUD Action listener
 	action_hud.action_requested.connect(_on_hud_action_requested)
 	role_hud.action_requested.connect(_on_hud_action_requested)
@@ -39,7 +48,10 @@ func _ready() -> void:
 	role_hud.expert_move_toggled.connect(_on_expert_move_toggled)
 	hand_hud.event_card_clicked.connect(_on_event_card_clicked)
 	event_popup.execute_event_requested.connect(_on_execute_event_requested)
+	event_popup.canceled.connect(_on_event_canceled)
 	card_picker_popup.card_selected.connect(_on_hud_action_requested)
+	card_picker_popup.event_card_selected.connect(_on_event_card_clicked_from_discard)
+	card_picker_popup.hidden.connect(func(): in_discard_mode = false)
 	
 	player_picker_popup.player_selected.connect(_on_airlift_player_selected)
 	player_picker_popup.canceled.connect(_cancel_airlift)
@@ -47,73 +59,84 @@ func _ready() -> void:
 	forecast_popup.forecast_applied.connect(_on_forecast_applied)
 	forecast_popup.canceled.connect(_cancel_forecast)
 
-	_update()
+	var t3 = Time.get_ticks_msec()
+	draw_state(game)
+	print("[DEBUG] draw_state() initial render took: ", Time.get_ticks_msec() - t3, "ms")
+	print("[DEBUG] Total main.tscn _ready initialization took: ", Time.get_ticks_msec() - start_time, "ms")
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:
 	pass
 
-func _update():
-	var new_player_id = game.get_current_player()
+func draw_state(state: PandemicGame) -> void:
+	top_bar.update_stats(state)
+	var new_player_id = state.get_current_player()
 	if new_player_id != current_player_id:
 		current_player_id = new_player_id
 		
 		# Reset dispatcher target when player changes
-		if game.get_player_role(current_player_id) == Globals.RoleType.Dispatcher:
+		if state.get_player_role(current_player_id) == Globals.RoleType.Dispatcher:
 			active_dispatcher_target = current_player_id
 		else:
 			active_dispatcher_target = -1
 			
-		_focus_camera_on_current_player()
+		_focus_camera_on_current_player(state)
 		
-	_update_city_actions()
-	_update_cities()
-	_update_players_location()
-	_highlight_reachable_cities()
-	hand_hud.update_hand(game)
+	_update_city_actions(state)
+	_update_cities(state)
+	_update_players_location(state)
+	_highlight_reachable_cities(state)
+	hand_hud.update_hand(state)
 
-func _focus_camera_on_current_player():
-	var city_id = game.get_player_location(current_player_id)
+func _focus_camera_on_current_player(state: PandemicGame):
+	var city_id = state.get_player_location(current_player_id)
 	var city_node = city_nodes_by_id.get(city_id)
 	if city_node:
 		var cam = get_node_or_null("Camera2D")
 		if cam and cam.has_method("focus_on_position"):
 			cam.focus_on_position(city_node.global_position, 1.8)
 
-func _update_cities():
+func _update_cities(state: PandemicGame):
 	var stations = []
-	if game.has_method("get_stations"):
-		stations = game.get_stations()
+	if state.has_method("get_stations"):
+		stations = state.get_stations()
 		
+	var hotspots = []
+	if state.has_method("get_hotspots"):
+		hotspots = state.get_hotspots()
+
 	for city in cities.get_children():
 		var id = city.city_id
-		city.set_counter(Globals.CityColor.BLUE, game.get_city_infection(id, Globals.CityColor.BLUE))
-		city.set_counter(Globals.CityColor.YELLOW, game.get_city_infection(id, Globals.CityColor.YELLOW))
-		city.set_counter(Globals.CityColor.BLACK, game.get_city_infection(id, Globals.CityColor.BLACK))
-		city.set_counter(Globals.CityColor.RED, game.get_city_infection(id, Globals.CityColor.RED))
+		city.set_counter(Globals.CityColor.BLUE, state.get_city_infection(id, Globals.CityColor.BLUE))
+		city.set_counter(Globals.CityColor.YELLOW, state.get_city_infection(id, Globals.CityColor.YELLOW))
+		city.set_counter(Globals.CityColor.BLACK, state.get_city_infection(id, Globals.CityColor.BLACK))
+		city.set_counter(Globals.CityColor.RED, state.get_city_infection(id, Globals.CityColor.RED))
 		city.has_station = stations.has(id)
+		city.is_hotspot = hotspots.has(id)
 
 func _on_city_clicked(city_id: int, city_name: String):
 	if in_government_grant_mode:
 		if available_gov_grant_actions.has(city_id):
-			game.execute_action(available_gov_grant_actions[city_id])
+			var turn_results = game.execute_action(available_gov_grant_actions[city_id])
+			top_bar.turn_finished(turn_results)
 			in_government_grant_mode = false
 			active_event_card_id = -1
 			available_gov_grant_actions.clear()
-			_update()
+			draw_state(game)
 		else:
 			# Cancel event if invalid city clicked
 			in_government_grant_mode = false
 			active_event_card_id = -1
 			available_gov_grant_actions.clear()
-			_highlight_reachable_cities()
+			_highlight_reachable_cities(game)
 		return
 		
 	if in_airlift_mode and active_airlift_player != -1:
 		if available_airlift_actions.has(active_airlift_player) and available_airlift_actions[active_airlift_player].has(city_id):
-			game.execute_action(available_airlift_actions[active_airlift_player][city_id])
+			var turn_results = game.execute_action(available_airlift_actions[active_airlift_player][city_id])
+			top_bar.turn_finished(turn_results)
 			_cancel_airlift()
-			_update()
+			draw_state(game)
 		else:
 			# Re-click logic or cancel? Let's just cancel
 			_cancel_airlift()
@@ -123,7 +146,11 @@ func _on_city_clicked(city_id: int, city_name: String):
 		role_hud.show_expert_move_discard(city_id)
 		return
 		
-	action_hud.open(city_id, city_name)
+	var city_node = city_nodes_by_id[city_id]
+	if city_node:
+		action_hud.open(city_id, city_name, city_node.color_type)
+	else:
+		action_hud.open(city_id, city_name)
 	action_hud.show()
 	
 func _create_players():
@@ -133,13 +160,15 @@ func _create_players():
 		new_player.setup(i, game.get_player_role(i))
 	
 func _on_hud_action_requested(action : int):
-	game.execute_action(action)
-	_update()
+	var turn_results: Dictionary = game.execute_action(action)
+	top_bar.turn_finished(turn_results)
+	print(turn_results)
+	draw_state(game)
 
 func _on_dispatcher_target_selected(player_id: int):
 	active_dispatcher_target = player_id
-	_update_city_actions()
-	_highlight_reachable_cities()
+	_update_city_actions(game)
+	_highlight_reachable_cities(game)
 
 var in_expert_move_mode: bool = false
 var in_government_grant_mode: bool = false
@@ -149,8 +178,20 @@ var available_airlift_actions: Dictionary = {}
 
 var active_event_card_id: int = -1
 var available_gov_grant_actions: Dictionary = {}
+var in_discard_mode: bool = false
+
+func _on_event_card_clicked_from_discard(card_id: int):
+	# Bypass the discard mode block
+	if game.get_card_type(card_id) == Globals.CardType.EVENT:
+		var name = game.get_card_name(card_id)
+		var event_action_type = game.get_event_action_id(card_id)
+		var desc = Globals.get_event_description(event_action_type)
+		event_popup.open(card_id, name, desc)
 
 func _on_event_card_clicked(card_id: int):
+	if in_discard_mode:
+		print("Ignored event click because discard popup is open")
+		return
 	if game.get_card_type(card_id) == Globals.CardType.EVENT:
 		var name = game.get_card_name(card_id)
 		var event_action_type = game.get_event_action_id(card_id)
@@ -160,12 +201,13 @@ func _on_event_card_clicked(card_id: int):
 func _on_execute_event_requested(card_id: int):		
 	var event_action_type = game.get_event_action_id(card_id)
 	var allowed_actions = game.get_possible_actions()
-	
+
 	if event_action_type == Globals.ActionType.ONE_QUIET_NIGHT:
 		for action in allowed_actions:
 			if (action & 0x1F) == Globals.ActionType.ONE_QUIET_NIGHT:
-				game.execute_action(action)
-				_update()
+				var turn_results = game.execute_action(action)
+				top_bar.turn_finished(turn_results)
+				draw_state(game)
 				return
 	
 	elif event_action_type == Globals.ActionType.GOVERNMENT_GRANT:
@@ -178,7 +220,7 @@ func _on_execute_event_requested(card_id: int):
 				var target_city = get_target_city(action)
 				available_gov_grant_actions[target_city] = action
 				
-		_highlight_reachable_cities()
+		_highlight_reachable_cities(game)
 
 	elif event_action_type == Globals.ActionType.FORECAST:
 		# Check if action is allowed
@@ -230,16 +272,21 @@ func _on_execute_event_requested(card_id: int):
 		else:
 			_cancel_airlift()
 
+func _on_event_canceled():
+	_update_city_actions(game)
+	_highlight_reachable_cities(game)
+
 func _on_airlift_player_selected(player_id: int):
 	active_airlift_player = player_id
-	_highlight_reachable_cities()
+	_highlight_reachable_cities(game)
 
 func _cancel_airlift():
 	in_airlift_mode = false
 	active_airlift_player = -1
 	active_event_card_id = -1
 	available_airlift_actions.clear()
-	_highlight_reachable_cities()
+	_update_city_actions(game)
+	_highlight_reachable_cities(game)
 
 func _on_forecast_applied(mapping: Array):
 	var padded = []
@@ -248,16 +295,17 @@ func _on_forecast_applied(mapping: Array):
 	
 	game.do_forecast(padded[0], padded[1], padded[2], padded[3], padded[4], padded[5])
 	active_event_card_id = -1
-	_update()
+	draw_state(game)
 
 func _cancel_forecast():
 	# If we need to revert active event card
 	active_event_card_id = -1
-	_update()
+	_update_city_actions(game)
+	draw_state(game)
 
 func _on_expert_move_toggled(active: bool):
 	in_expert_move_mode = active
-	_highlight_reachable_cities()
+	_highlight_reachable_cities(game)
 
 func get_type(raw_data: int) -> int:
 	return raw_data & 0x1F # 0x1F is 31 (the first 5 bits)
@@ -272,9 +320,9 @@ func get_target_player(raw_data: int) -> int:
 func treat_get_color_id(raw_data: int) -> int:
 	return (raw_data >> 13) & 0x3
 		
-func _update_players_location():
-	for player_id in game.get_player_count():
-		var city_id : int = game.get_player_location(player_id)
+func _update_players_location(state: PandemicGame):
+	for player_id in state.get_player_count():
+		var city_id : int = state.get_player_location(player_id)
 		var city_node = city_nodes_by_id.get(city_id)
 		
 		# Important fix: The Players container doesn't guarantee the nodes are ordered 0, 1, 2, 3
@@ -303,17 +351,61 @@ func _update_players_location():
 		else:
 			push_error("Start marker not found for Player " + str(player_id))
 		
-func _update_city_actions():
-	var allowed_actions: Array = game.get_possible_actions()
+func _update_city_actions(state: PandemicGame):
+	var allowed_actions: Array = state.get_possible_actions()
 	
-	var p = game.get_current_player()
+	var p = state.get_current_player()
 	print("--- UPDATING ACTIONS FOR PLAYER ", p, " ---")
 	print("Action count: ", allowed_actions.size())
 	
 	reachable_cities.clear()
 	action_hud.reset_actions()
-	role_hud.update_hud(game, p, allowed_actions, active_dispatcher_target)
+	role_hud.update_hud(state, p, allowed_actions, active_dispatcher_target)
 	
+	if allowed_actions.size() > 0:
+		var has_discard = false
+		var has_remove_station = false
+		var only_remove_station = true
+		
+		var discard_actions = {}
+		var remove_station_actions = {}
+		var forced_player = -1
+		
+		for action in allowed_actions:
+			var type: int = get_type(action)
+			
+			if type == Globals.ActionType.DISCARD_CARD:
+				has_discard = true
+				forced_player = (action >> 11) & 0x3
+				var target_city = get_target_city(action)
+				discard_actions[target_city] = action
+			elif type == Globals.ActionType.REMOVE_STATION:
+				has_remove_station = true
+				forced_player = (action >> 11) & 0x3
+				var target_city = get_target_city(action)
+				remove_station_actions[target_city] = action
+			
+			if type != Globals.ActionType.REMOVE_STATION:
+				only_remove_station = false
+		
+		if only_remove_station and has_remove_station:
+			var title_text = "Player " + str(forced_player + 1) + ": Remove a Station"
+			card_picker_popup.open(title_text, state, remove_station_actions)
+			return
+		elif has_discard:
+			var title_text = "Player " + str(forced_player + 1) + ": Discard a Card"
+			
+			# Add playable event cards to the discard menu so they can use them directly
+			var hand_ids = state.get_player_hand(forced_player)
+			for c_id in hand_ids:
+				if state.get_card_type(c_id) == Globals.CardType.EVENT:
+					var event_key = "play_" + str(c_id)
+					discard_actions[event_key] = -1
+			
+			in_discard_mode = true
+			card_picker_popup.open(title_text, state, discard_actions)
+			# Do not return here so they can still see the HUD in case they want to play events
+			
 	var filter_target_player = active_dispatcher_target if active_dispatcher_target != -1 else p
 
 	for action in allowed_actions:
@@ -323,7 +415,7 @@ func _update_city_actions():
 		if type != Globals.ActionType.CURE:
 			target_city = get_target_city(action)
 		else:
-			target_city = game.get_player_location(p) # Cure doesn't encode target_city, uses current
+			target_city = state.get_player_location(p) # Cure doesn't encode target_city, uses current
 		
 		# Temporary Debug Code to see exactly what actions C++ is giving us:
 		print("DEBUG ACTION: Type=", type, " TargetCity=", target_city, " Raw=", action)
@@ -365,7 +457,7 @@ func _refresh_city_highlights():
 	for city in cities.get_children():
 		city.highlight = false
 			
-func _highlight_reachable_cities():
+func _highlight_reachable_cities(state: PandemicGame):
 	_refresh_city_highlights()
 	
 	if in_government_grant_mode:
@@ -396,7 +488,7 @@ func _highlight_reachable_cities():
 	for city_id in reachable_cities:
 		var city = city_nodes_by_id.get(city_id)
 		if city:
-			if active_dispatcher_target != -1 and game.get_player_role(current_player_id) == Globals.RoleType.Dispatcher:
+			if active_dispatcher_target != -1 and state.get_player_role(current_player_id) == Globals.RoleType.Dispatcher:
 				city.highlight_color = Globals.RoleColors[Globals.RoleType.Dispatcher]
 			else:
 				city.highlight_color = Color(0.1, 0.8, 0.3)

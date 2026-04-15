@@ -14,6 +14,12 @@
 #include <cstdint>
 #include <random>
 
+struct DrawnCards {
+	bool turnEnded = false;
+	std::vector<uint8_t> drawnPlayerCards;
+	std::vector<uint8_t> drawnInfectionCards;
+};
+
 struct GameState {
 	CityState cityState;
 	Players players;
@@ -27,6 +33,10 @@ struct GameState {
 	void DealPlayerCards();
 	void InsertEpidemicCards(Difficulty diff);
 	void SetRoles();
+
+	inline GameState clone() const {
+		return *this;
+	}
 
 	// -------Actions-------
 	inline void DoDrive(uint8_t cityId, uint8_t target_player) {
@@ -203,24 +213,29 @@ struct GameState {
 		return outbreak;
 	}
 
-	inline void EndTurn() {
+	inline void EndTurn(DrawnCards* cards = nullptr) {
 		if (gameFlags.GetActionsRemaining() == 0) {
+			if (cards) cards->turnEnded = true;
+
 			gameFlags.SetOperationsExpertMovFlag(false);
 
 			// Draw 2 player cards
-			DrawTwoPlayerCards();
+			DrawTwoPlayerCards(cards);
 
 			// Infect cities
-			if (!gameFlags.IsQuietNight()) InfectCities();
+			if (!gameFlags.IsQuietNight()) InfectCities(cards);
 			else gameFlags.SetQuietNight(false);
 
 			gameFlags.NextPlayer();
 		}
 	}
 
-	inline void DrawTwoPlayerCards() {
+	inline void DrawTwoPlayerCards(DrawnCards* cards = nullptr) {
 		for (int i = 0; i < 2; i++) {
 			uint8_t card = decks.player_deck.DrawAndRemove();
+
+			if (cards) cards->drawnPlayerCards.push_back(card);
+
 			if (card == CardRegistry::GetEpidemicCardID()) {
 				ResolveEpidemic();
 			}
@@ -229,9 +244,13 @@ struct GameState {
 			}
 		}
 	}
-	inline void InfectCities() {
+
+	inline void InfectCities(DrawnCards* cards = nullptr) {
 		for (int i = 0; i < gameFlags.GetInfectionRateAmount(); i++) {
 			uint8_t cardId = decks.infection_deck.DrawAndDiscard();
+
+			if (cards) cards->drawnInfectionCards.push_back(cardId);
+
 			ColorType color = CardRegistry::GetColor(cardId);
 			InfectCity(cardId, color);
 			cityState.ClearOutbreakChain();
@@ -291,7 +310,7 @@ struct GameState {
 	void AddFilteredEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
 
 	void GetPolicyTurns(TurnList& list) const;
-	void Execute(Turn& turn);
+	void Execute(Turn& turn, DrawnCards* cards = nullptr);
 	void AddCureTurns(TurnList& list) const;
 	void AddShareTurns(TurnList& list) const;
 	void AddTreatTurns(TurnList& list) const;
@@ -299,7 +318,7 @@ struct GameState {
 	void AddWalkTurn(TurnList& list) const;
 	void HandleLimits(); // Handles Hand and Station Limits
 
-	void Execute(Action action);
+	void Execute(Action action, DrawnCards* cards = nullptr);
 	void HandleOutbreak(uint8_t city_id, ColorType color);
 
 	uint8_t GetTheWorstStation() const;

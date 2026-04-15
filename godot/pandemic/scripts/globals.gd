@@ -1,5 +1,12 @@
 extends Node
 
+# Preload the main scene at the very start of the application
+var preloaded_main_scene: PackedScene = preload("res://scenes/main.tscn")
+
+var game_difficulty: int = 1
+var game_players: int = 4
+var game_seed: int = 42
+
 enum CityColor {BLUE, YELLOW, BLACK, RED}
 enum ActionType {
 	DRIVE = 0,          
@@ -93,3 +100,11 @@ var RoleColors = {
 	RoleType.Contingency: Color.AQUAMARINE,
 	RoleType.Quarantine: Color.DARK_GREEN
 }
+
+func get_city_color(color_enum: int) -> Color:
+	match color_enum:
+		CityColor.BLUE: return Color.DODGER_BLUE
+		CityColor.RED: return Color.CRIMSON
+		CityColor.YELLOW: return Color.GOLD
+		CityColor.BLACK: return Color.DARK_SLATE_GRAY
+		_: return Color.GRAY

@@ -79,26 +79,33 @@ func _ready():
 				pressed_style.bg_color = normal_color.darkened(0.4)
 				btn.add_theme_stylebox_override("pressed", pressed_style)
 
-func open(city_id: int, c_name: String):
+func open(city_id: int, c_name: String, color_enum: int = 0):
 	active_city_id = city_id
 	title.text = c_name
+	
+	var style = StyleBoxFlat.new()
+	var bg_color = Globals.get_city_color(color_enum).lerp(Color(0.1, 0.1, 0.1, 1.0), 0.7)
+	bg_color.a = 0.8
+	style.bg_color = bg_color
+	add_theme_stylebox_override("panel", style)
+	
 	main_grid.show()
 	color_picker.hide()
 	
 	# Enable/Disable buttons based on bridge data
 	for btn in main_grid.get_children():
 		var type = btn.get_meta("action_type")
-		btn.disabled = true
-		
+		btn.hide()
+
 		if available_actions.has(type) and available_actions[type].has(active_city_id):
-			btn.disabled = false
-	
+			btn.show()
+
 	for btn in color_picker.get_children():
 		var color_id = btn.get_meta("color_id")
-		btn.disabled = true
+		btn.hide()
 		if available_actions.has(Globals.ActionType.TREAT) and available_actions[Globals.ActionType.TREAT].has(active_city_id):
 			if available_actions[Globals.ActionType.TREAT][active_city_id].has(color_id):
-				btn.disabled = false
+				btn.show()
 	
 	show()
 

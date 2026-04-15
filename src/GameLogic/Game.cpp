@@ -287,34 +287,29 @@ void GameState::GetPossibleActions(ActionList& list) const
 
 	CardCounter cure_counter;
 
-	// Player don't have to use all 4 actions
-	// End turn action added
-	//list.Add(END_TURN);
-
 	// ===== Hand limit =====
 	// If the player has more than 7 cards, he needs to get rid of some
 	// Thats the only action he can do that turn (not counted as action)
 	// Event card can be used instead of discarding a card
-	if (players.GetHandSize(currentPlayer) > HAND_LIMIT) 
-	{
-		uint64_t temp_hand = players.hands[currentPlayer];
+	for (uint8_t player_id = 0; player_id < players.count; player_id++) {
+		if (players.GetHandSize(player_id) > HAND_LIMIT)
+		{
+			uint64_t temp_hand = players.hands[player_id];
 
-		while (temp_hand > 0) {
-			uint8_t cardId = std::countr_zero(temp_hand);
+			while (temp_hand > 0) {
+				uint8_t cardId = std::countr_zero(temp_hand);
 
-			// TODO: Player could theoretically want to discard an Event Card
-			// which is currently not possible. 
-			if (CardRegistry::IsEvent(cardId)) {
-				AddEventAction(list, cardId, currentPlayer);
+				// Player can use the event action to get rid of one card
+				if (CardRegistry::IsEvent(cardId)) {
+					AddEventAction(list, cardId, player_id);
+
+				}
+				list.Add(DISCARD_CARD, cardId, player_id, player_id);
+
+				temp_hand &= (temp_hand - 1);
 			}
-			else {
-				list.Add(DISCARD_CARD, cardId, currentPlayer, currentPlayer);
-			}
-
-			temp_hand &= (temp_hand - 1);
+			return;
 		}
-
-		return;
 	}
 
 	// ===== Station limit =====
@@ -330,10 +325,12 @@ void GameState::GetPossibleActions(ActionList& list) const
 
 			station_mask &= (station_mask - 1);
 		}
-
 		return;
-
 	}
+
+	// Player don't have to use all 4 actions
+	// End turn action added
+	list.Add(END_TURN);
 
 	// ===== Drive ====
 	// Listing neighboring cities that the current player can drive to.
@@ -1236,10 +1233,10 @@ void GameState::GetPolicyTurns(TurnList& list) const
 	AddWalkTurn(list); // TODO: Without this I get no moves in the MCTS, which is weird. Look into it 
 }
 
-void GameState::Execute(Turn& turn)
+void GameState::Execute(Turn& turn, DrawnCards* cards)
 {
 	for (const Action& action : turn) {
-		Execute(action);
+		Execute(action, cards);
 		if (currentState != State::InProgress) break;
 	}
 
@@ -1622,7 +1619,7 @@ void GameState::HandleLimits()
 	}
 }
 
-void GameState::Execute(Action action)
+void GameState::Execute(Action action, DrawnCards* cards)
 {
 	switch (action.base.type) {
 
@@ -1776,7 +1773,7 @@ void GameState::Execute(Action action)
 		currentState = State::NotEnoughPlayerCards;
 	}
 
-	EndTurn();
+	EndTurn(cards);
 }
 
 void GameState::HandleOutbreak(uint8_t city_id, ColorType color) 

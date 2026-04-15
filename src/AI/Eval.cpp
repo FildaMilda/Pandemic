@@ -124,13 +124,13 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
             // Multiple players near the same hotspot won't stack the reward
             // Hotspot could potentionally mean an outbreak and 8 outbreak is game over
             // So by curing a hotspot we potentionally save -1/8 score, so we reward that
-            score += (0.125 / (minDistanceToHotspot + 1.0)) * weights.hotspot_approach_weight;
+            score += (0.125f / (minDistanceToHotspot + 1.0f)) * weights.hotspot_approach_weight;
         }
     }
 
     // Station Network Bonus (Mobility)
     // Shuttle Flight is very effective
-    score += state.cityState.GetStationCount() * 0.01 * weights.station_network_weight;
+    score += state.cityState.GetStationCount() * 0.01f * weights.station_network_weight;
 
     // Maybe rewarding Eradication?
     // Add role specific rewards
@@ -139,7 +139,7 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
 
     // Penalize outbreaks
     // 8 outbreaks is game over
-    score -= state.gameFlags.GetOutbreaks() / 8.0 * weights.outbreak_penalty;
+    score -= state.gameFlags.GetOutbreaks() / 8.0f * weights.outbreak_penalty;
 
     // Penalize cubes
     int max_count = 0; 
@@ -157,7 +157,7 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
     score -= (NUMBER_OF_UNIQUE_CARDS - state.decks.player_deck.Count()) / (float)NUMBER_OF_UNIQUE_CARDS * weights.deck_progress_penalty;
 
     // Penalize the sheer existence of hotspots
-    score -= state.cityState.GetHotspotCount() * 0.125 * weights.hotspot_penalty;
+    score -= state.cityState.GetHotspotCount() * 0.125f * weights.hotspot_penalty;
 
     // Chain Outbreak Risk
     // Penalizing 2 or more neighboring hotspots
@@ -174,7 +174,7 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
             }
         }
     }
-    score -= chainRiskCount * 0.25 * weights.chain_reaction_penalty;
+    score -= chainRiskCount * 0.25f * weights.chain_reaction_penalty;
 
     //double final_score = std::tanh(score * 0.5);
     //return (float)std::clamp(final_score, -0.95, 0.95);

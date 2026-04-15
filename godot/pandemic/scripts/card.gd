@@ -50,7 +50,9 @@ func _on_gui_input(event: InputEvent) -> void:
 func _get_color_from_enum(card_type: int, color_enum: int) -> Color:
 	if card_type == Globals.CardType.EVENT:
 		return Color.BURLYWOOD
-	
+	elif card_type == Globals.CardType.EPIDEMIC:
+		return Color.FOREST_GREEN
+
 	match color_enum:
 		Globals.CityColor.BLUE: return Color.DODGER_BLUE
 		Globals.CityColor.RED: return Color.CRIMSON
