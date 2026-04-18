@@ -3,6 +3,7 @@
         "Get-Command": true,
         "Get-History": true,
         "Out-File": true,
-        "&": true
+        "&": true,
+        "print('Replaced": true
     }
 }

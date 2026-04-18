@@ -197,6 +197,13 @@ struct Players {
         return roles[player_id] == role;
     }
 
+    inline uint8_t FindRole(Role role) const {
+        for (int i = 0; i < count; i++) {
+            if (GetRole(i) == role) return i;
+        }
+        return 255;
+    }
+
     void Print() const;
 };
 

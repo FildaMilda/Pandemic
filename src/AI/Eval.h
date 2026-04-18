@@ -5,15 +5,15 @@
 #include <limits>
 
 struct Weights {
-    float cure_weight = 1.0f;
-    float card_progression = 1.0f;
-    float station_dist_reward = 1.0f;
-    float outbreak_penalty = 1.0f;
+    float cure_weight = 10.0f;
+    float card_progression = 5.0f;
+    float station_dist_reward = 2.0f;
+    float outbreak_penalty = 2.0f;
     float hotspot_penalty = 1.0f;
-    float cube_pressure = 1.0f;
+    float cube_pressure = 1.5f;
     float deck_progress_penalty = 1.0f;
     float hotspot_approach_weight = 1.0f;
-    float station_network_weight = 1.0f;
+    float station_network_weight = 3.0f;
     float chain_reaction_penalty = 1.0f;
     float rendezvous_penalty_weight = 1.0f;
 
@@ -36,7 +36,6 @@ struct Weights {
         researcher_meetup_weight = dist(rng);
         medic_treat_weight = dist(rng);
         qs_protect_weight = dist(rng);
-
     }
 
     // Mutate weights slightly

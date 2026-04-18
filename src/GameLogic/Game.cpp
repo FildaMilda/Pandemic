@@ -1237,9 +1237,9 @@ void GameState::Execute(Turn& turn, DrawnCards* cards)
 {
 	for (const Action& action : turn) {
 		Execute(action, cards);
-		if (currentState != State::InProgress) break;
+		if (currentState != State::InProgress) return;
 	}
-
+	HandleEvents();
 	HandleLimits();
 }
 
@@ -1322,6 +1322,7 @@ void GameState::AddCureTurns(TurnList& list) const
 		if (GetFastestPathToAnyStation(
 			currentPlayer,
 			true,
+			true,
 			cureColor,
 			(players.HasRole(currentPlayer, Role::Scientist)) ? 4 : 5,
 			cureTurn,
@@ -1381,12 +1382,19 @@ void GameState::AddShareTurns(TurnList& list) const
 				uint8_t rendezvous = (activeRole == Role::Researcher) ? otherCity : cardId;
 				Turn shareMacro;
 
-				if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
+				if (GetFastestPath(activePlayer, rendezvous, true, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
 
 					// If we made it to the rendezvous AND the other player is waiting there
 					if (rendezvous == otherCity && shareMacro.count < actions_left) {
 						// Active builds path, then actively gives it away
 						shareMacro.Add(MakeShareAction(activePlayer, otherPlayer, cardId, true));
+					}
+					else if (shareMacro.count == 0 && actions_left > 0) {
+						// We arrived at the rendezvous, but the other player isn't here yet!
+						// Add an intentional Wait/End Turn so we don't wander away while waiting.
+						Action waitAction;
+						waitAction.base.type = END_TURN;
+						shareMacro.Add(waitAction);
 					}
 
 					// We add the macro EVEN IF the share wasn't added. 
@@ -1413,12 +1421,18 @@ void GameState::AddShareTurns(TurnList& list) const
 				uint8_t rendezvous = (otherRole == Role::Researcher) ? otherCity : cardId;
 				Turn shareMacro;
 
-				if (GetFastestPath(activePlayer, rendezvous, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
+				if (GetFastestPath(activePlayer, rendezvous, true, true, ColorType::NO_COLOR, 0, shareMacro, actions_left)) {
 
 					// If we made it to the rendezvous AND the other player is waiting there
 					if (rendezvous == otherCity && shareMacro.count < actions_left) {
 						// Active builds path, then actively takes it
 						shareMacro.Add(MakeShareAction(otherPlayer, activePlayer, cardId, false));
+					}
+					else if (shareMacro.count == 0 && actions_left > 0) {
+						// We arrived at the rendezvous, but the other player isn't here yet!
+						Action waitAction;
+						waitAction.base.type = END_TURN;
+						shareMacro.Add(waitAction);
 					}
 
 					// Again, add the macro so the AI can evaluate "getting closer" as a good move.
@@ -1490,8 +1504,12 @@ void GameState::AddTreatTurns(TurnList& list) const
 		uint8_t target_city = std::countr_zero(target_mask);
 
 		Turn pathMacro;
+		bool can_use_card = false;
 
-		if (GetFastestPath(currentPlayer, target_city, false, ColorType::NO_COLOR, 0, pathMacro, actions_left)) {
+		if (gameFlags.GetOutbreaks() > 4 && cityState.HasHotspot(target_city))
+			can_use_card = true;
+
+		if (GetFastestPath(currentPlayer, target_city, false, can_use_card, ColorType::NO_COLOR, 0, pathMacro, actions_left)) {
 
 			if (pathMacro.count < actions_left) {
 				ColorType dominantColor = cityState.GetDominantDiseaseColor(target_city);
@@ -1558,7 +1576,7 @@ void GameState::AddBuildTurns(TurnList& list) const
 		Turn buildMacro;
 
 		// Note: prioritize_cards = true. We'd rather walk and save flight cards for emergencies.
-		if (GetFastestPath(currentPlayer, target_city, false, cureColor, cureThreshold, buildMacro, actions_left, target_city)) {
+		if (GetFastestPath(currentPlayer, target_city, false, false, cureColor, cureThreshold, buildMacro, actions_left, target_city)) {
 
 			// If the path length is strictly LESS than our available actions, 
 			// it means we arrived with at least 1 action left to actually drop the station.
@@ -1568,6 +1586,31 @@ void GameState::AddBuildTurns(TurnList& list) const
 
 			list.Add(buildMacro);
 		}
+	}
+}
+
+void GameState::AddSpecialTurns(TurnList& list) const
+{
+	Role playerRole;
+	for (uint8_t player_id = 0; player_id < players.count; player_id++) {
+		playerRole = players.GetRole(player_id);
+
+		switch (playerRole) {
+		case Role::Contingency:
+			if (gameFlags.IsContingencyPlannerSlotEmpty()) {
+				for (const auto card : decks.player_deck.GetDiscardPile()) {
+					if (CardRegistry::IsEvent(card)) {
+						Turn plannerMacro;
+						plannerMacro.Add(Action(PLANNER_TAKE, card, player_id, player_id));
+						list.Add(plannerMacro);
+					}
+				}
+			}
+
+			// TODO: Add more?
+
+		}
+
 	}
 }
 
@@ -1585,6 +1628,32 @@ void GameState::AddWalkTurn(TurnList& list) const
 		Turn driveTurn;
 		driveTurn.Add(Action(DRIVE, MapData::adjacency[currentCity][i], currentPlayer, currentPlayer));
 		list.Add(driveTurn);
+	}
+}
+
+void GameState::HandleEvents()
+{
+	uint8_t owner;
+	bool forecast_used = false;
+
+	owner = players.GetOwnerOf(EventCardID::Forecast);
+	if (owner != 255 && gameFlags.epidemic_card_drawn) {
+		forecast_used = true;
+		DoForecastSmart(owner);
+	}
+
+	owner = players.GetOwnerOf(EventCardID::ResilientPopulation);
+	if (owner != 255) {
+		for (const auto card : decks.infection_deck.GetDiscardPile()) {
+			if (cityState.HasHotspot(card)) {
+				DoResilientPopulation(owner, card);
+			}
+		}
+	}
+
+	owner = players.GetOwnerOf(EventCardID::OneQuietNight);
+	if (owner != 255 && gameFlags.epidemic_card_drawn && !forecast_used) {
+		DoOneQuietNight(owner);
 	}
 }
 
@@ -1920,7 +1989,7 @@ std::vector<uint8_t> GameState::GetBestCardsForCure(uint8_t player_id, ColorType
 	return result;
 }
 
-bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_events, ColorType protected_color, int protected_threshold, Turn& out_path, int action_count, uint8_t excluded_card) const
+bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_events, bool use_cards, ColorType protected_color, int protected_threshold, Turn& out_path, int action_count, uint8_t excluded_card) const
 {
 	out_path.Clear();
 	uint8_t start_city = players.GetLocation(player_id);
@@ -1971,7 +2040,7 @@ bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_
 			TryUpdatePath(cost, true, Action(DISPATCHER_MOVE, friend_loc, player_id, player_id), friend_loc);
 		}
 	}
-	else if (players.GetRole(player_id) == Role::Operations) {
+	else if (use_cards && players.GetRole(player_id) == Role::Operations) {
 		if (cityState.HasStation(start_city)) {
 			uint64_t temp_hand = players.hands[player_id];
 			uint8_t trash_card = 255;
@@ -2007,21 +2076,23 @@ bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_
 	}
 
 	// 5. DIRECT & CHARTER FLIGHTS
-	uint64_t temp_hand = players.hands[player_id];
-	while (temp_hand > 0) {
-		uint8_t cardId = std::countr_zero(temp_hand);
-		temp_hand &= (temp_hand - 1);
+	if (use_cards) {
+		uint64_t temp_hand = players.hands[player_id];
+		while (temp_hand > 0) {
+			uint8_t cardId = std::countr_zero(temp_hand);
+			temp_hand &= (temp_hand - 1);
 
-		if (cardId == excluded_card) continue;
+			if (cardId == excluded_card) continue;
 
-		if (!CardRegistry::IsEvent(cardId) && !players.IsNeededForCure(player_id, protected_color, cardId)) {
+			if (!CardRegistry::IsEvent(cardId) && !players.IsNeededForCure(player_id, protected_color, cardId)) {
 
-			if (cardId == start_city) {
-				TryUpdatePath(1, true, Action(CHARTER_FLIGHT, target_city, player_id, player_id), target_city);
-			}
-			else {
-				int cost = 1 + MapData::drivePaths[cardId][target_city].length;
-				TryUpdatePath(cost, true, Action(DIRECT_FLIGHT, cardId, player_id, player_id), cardId);
+				if (cardId == start_city) {
+					TryUpdatePath(1, true, Action(CHARTER_FLIGHT, target_city, player_id, player_id), target_city);
+				}
+				else {
+					int cost = 1 + MapData::drivePaths[cardId][target_city].length;
+					TryUpdatePath(cost, true, Action(DIRECT_FLIGHT, cardId, player_id, player_id), cardId);
+				}
 			}
 		}
 	}
@@ -2041,7 +2112,7 @@ bool GameState::GetFastestPath(uint8_t player_id, uint8_t target_city, bool use_
 	return false;
 }
 
-bool GameState::GetFastestPathToAnyStation(uint8_t player_id, bool use_events, ColorType protected_color, int protected_threshold, Turn& out_path, int action_count) const
+bool GameState::GetFastestPathToAnyStation(uint8_t player_id, bool use_events, bool use_cards, ColorType protected_color, int protected_threshold, Turn& out_path, int action_count) const
 {
 	out_path.Clear();
 
@@ -2058,7 +2129,7 @@ bool GameState::GetFastestPathToAnyStation(uint8_t player_id, bool use_events, C
 
 		Turn temp_path;
 
-		if (GetFastestPath(player_id, station_city, use_events, protected_color, protected_threshold, temp_path, action_count)) {
+		if (GetFastestPath(player_id, station_city, use_events, use_cards, protected_color, protected_threshold, temp_path, action_count)) {
 
 			// The player is already at a station
 			if (temp_path.count == 0) {

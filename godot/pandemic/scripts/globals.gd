@@ -6,6 +6,7 @@ var preloaded_main_scene: PackedScene = preload("res://scenes/main.tscn")
 var game_difficulty: int = 1
 var game_players: int = 4
 var game_seed: int = 42
+var is_observe_ai: bool = false
 
 enum CityColor {BLUE, YELLOW, BLACK, RED}
 enum ActionType {

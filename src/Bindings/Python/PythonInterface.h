@@ -9,6 +9,7 @@
 #include "Eval.h"
 #include "ActionDecoder.h"
 #include "MCTS_NN.h"
+#include "MacroMCTS.h"
 
 namespace py = pybind11;
 
@@ -16,9 +17,16 @@ class PandemicEnv {
     GameState state;
     std::mt19937 rng;
 
+    Difficulty difficulty;
+    int player_count;
+    int seed;
+    MacroMCTS macro_brain;
+
 public:
-    PandemicEnv(int seed) : rng(seed) {
-        state.Setup(Difficulty::INTRO, 4, &rng);
+    Weights heuristic_weights;
+
+    PandemicEnv(int diff, int players, int seed) : rng(seed), difficulty((Difficulty)diff), player_count(players), seed(seed) {
+        state.Setup(difficulty, player_count, &rng);
     }
 
     PandemicEnv Clone();
@@ -36,6 +44,11 @@ public:
     // This runs FAST in C++, saving Python from doing millions of lookups.
     py::array_t<float> GetTensor();
     py::array_t<float> RunMCTS(int iterations, py::object model);
+
+    // Macro-MCTS helpers
+    py::dict StepMacro(int iterations);
+    py::dict PlayMacroGame(int iterations);
+
     py::dict GetGameInfo();
 
     float GetScore();

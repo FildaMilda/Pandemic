@@ -14,6 +14,10 @@ extends Node2D
 @onready var forecast_popup = $HUD/ForecastPopup
 
 var game = PandemicGame.new()
+var history: Array = []
+var current_index: int = 0
+var ai_thread: Thread
+
 var reachable_cities : Array[int]
 var city_nodes_by_id = {}
 var current_player_id: int = -1
@@ -48,6 +52,24 @@ func _ready() -> void:
 	role_hud.expert_move_toggled.connect(_on_expert_move_toggled)
 	hand_hud.event_card_clicked.connect(_on_event_card_clicked)
 	event_popup.execute_event_requested.connect(_on_execute_event_requested)
+
+	if Globals.is_observe_ai:
+		print("In Observe AI")
+		# Add base clone as dict
+		history.append({
+			"game": game.clone(),
+			"action": "Initial State",
+			"turn_info": {}
+		})
+		current_index = 0
+		call_deferred("_setup_ai_ui")
+		
+		# Start background rendering of states
+		print("Starting the thread")
+		ai_thread = Thread.new()
+		ai_thread.start(_run_ai_game_loop)
+
+
 	event_popup.canceled.connect(_on_event_canceled)
 	card_picker_popup.card_selected.connect(_on_hud_action_requested)
 	card_picker_popup.event_card_selected.connect(_on_event_card_clicked_from_discard)
@@ -63,6 +85,118 @@ func _ready() -> void:
 	draw_state(game)
 	print("[DEBUG] draw_state() initial render took: ", Time.get_ticks_msec() - t3, "ms")
 	print("[DEBUG] Total main.tscn _ready initialization took: ", Time.get_ticks_msec() - start_time, "ms")
+
+
+
+
+func _setup_ai_ui() -> void:
+	# Keep simple action HUD but convert it or add buttons to it
+	action_hud.hide() # Or setup observe controls
+	
+	# Create Observe UI Container
+	var hbox = HBoxContainer.new()
+	hbox.name = "HBoxContainer"
+	$HUD/BottomBar.add_child(hbox)
+	
+	var prev_btn = Button.new()
+	prev_btn.text = "Previous State"
+	prev_btn.pressed.connect(_on_prev_state)
+	hbox.add_child(prev_btn)
+	
+	var next_btn = Button.new()
+	next_btn.text = "Next State"
+	next_btn.pressed.connect(_on_next_state)
+	hbox.add_child(next_btn)
+	
+	var label = Label.new()
+	label.name = "StateLabel"
+	label.text = "State 1 / 1"
+	hbox.add_child(label)
+	
+	var action_label = Label.new()
+	action_label.name = "ActionLabel"
+	action_label.text = "Action: Initial State"
+	action_label.add_theme_color_override("font_color", Color(1, 1, 0)) # highlight
+	hbox.add_child(action_label)
+
+func _update_state_label() -> void:
+	if has_node("HUD/BottomBar/HBoxContainer/StateLabel"):
+		$HUD/BottomBar/HBoxContainer/StateLabel.text = "State %d / %d" % [current_index + 1, history.size()]
+
+func _on_prev_state() -> void:
+	if current_index > 0:
+		current_index -= 1
+		_apply_history_state()
+
+func _on_next_state() -> void:
+	if current_index < history.size() - 1:
+		current_index += 1
+		_apply_history_state()
+
+func _apply_history_state() -> void:
+	var dict = history[current_index]
+	game = dict["game"]
+	_update_state_label()
+	
+	if has_node("HUD/BottomBar/HBoxContainer/ActionLabel"):
+		$HUD/BottomBar/HBoxContainer/ActionLabel.text = "Action: " + dict.get("action", "")
+		
+	if dict.has("turn_info"):
+		var t_info = dict["turn_info"]
+		if t_info.has("drawn_player_cards"):
+			top_bar._last_player_cards = t_info["drawn_player_cards"]
+		if t_info.has("drawn_infection_cards"):
+			top_bar._last_infection_cards = t_info["drawn_infection_cards"]
+	
+	draw_state(game)
+
+func _run_ai_game_loop():
+	var current_node = history.back()["game"]
+
+	# While game is running
+	print("Starting the game")
+	while not current_node.is_game_over():
+		var state_clone = current_node.clone()
+		var actions = state_clone.get_mcts_macro_action(10000) # choose iterations
+		state_clone.call_deferred("free")
+
+		if actions.size() == 0:
+			push_warning("MCTS returned no actions, stopping AI loop")
+			break
+
+		for action in actions:
+			var step_clone = current_node.clone()
+			
+			var act_str = ""
+			if step_clone.has_method("get_action_string"):
+				act_str = step_clone.get_action_string(action)
+			else:
+				act_str = "Action " + str(action)
+				
+			print("[DEBUG] AI Executing Action: {} ({})", act_str, action)
+			var t_info = step_clone.execute_action(action)
+
+			current_node = step_clone
+
+			var dict = {
+				"game": step_clone,
+				"action": act_str,
+				"turn_info": t_info
+			}
+
+			# Lock array if updating while main thread accesses it
+			call_deferred("_append_history_state", dict)
+func _append_history_state(new_state):
+	history.append(new_state)
+	_update_state_label()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		if ai_thread and ai_thread.is_started():
+			ai_thread.wait_to_finish()
+		for dict in history:
+			if is_instance_valid(dict["game"]):
+				dict["game"].free()
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta: float) -> void:

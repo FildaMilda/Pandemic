@@ -31,7 +31,7 @@ struct GameFlags {
     uint32_t is_medic_in_game : 1;
     uint32_t medic_id : 2;
 
-    uint32_t _unused : 1;
+    uint32_t epidemic_card_drawn : 1;
 
     void Init() {
         outbreak_counter = 0;
@@ -49,8 +49,10 @@ struct GameFlags {
         operations_expert_movement_used = false;
         is_quarantine_specialist_in_game = false;
         quarantine_specialist_id = 0;
-        is_medic_in_game = 0;
+        is_medic_in_game = false;
         medic_id = 0;
+
+        epidemic_card_drawn = false;
     }
 
     inline void SetContingencyPlannerSlot(uint8_t cardId) {

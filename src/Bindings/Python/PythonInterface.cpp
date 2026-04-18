@@ -10,7 +10,7 @@ PandemicEnv PandemicEnv::Clone()
 
 py::array_t<float> PandemicEnv::Reset()
 {
-	state.Setup(Difficulty::INTRO, 4, &rng);
+	state.Setup(difficulty, player_count, &rng);
 	return GetTensor();
 }
 
@@ -88,6 +88,71 @@ py::array_t<float> PandemicEnv::RunMCTS(int iterations, py::object model)
     return py::array_t<float>(pi.size(), pi.data());
 }
 
+py::dict PandemicEnv::StepMacro(int iterations)
+{
+    py::dict result;
+
+    if (state.currentState != State::InProgress) {
+        result["done"] = true;
+        result["won"] = state.currentState == State::AllCured;
+        result["status"] = state.currentState == State::AllCured ? "Win_AllCured" : "Finished";
+        result["turns"] = 0;
+        result["macro"] = py::list();
+        return result;
+    }
+
+    Turn bestMacro = macro_brain.Search(state, iterations, heuristic_weights);
+    py::list macro_list;
+    for (int i = 0; i < bestMacro.count; ++i) {
+        macro_list.append((int64_t)bestMacro.actions[i].raw_data);
+    }
+
+    state.Execute(bestMacro);
+
+    std::string status = "InProgress";
+    if (state.currentState == State::AllCured) status = "Win_AllCured";
+    else if (state.currentState == State::OutbreakMarkerMaxed) status = "Loss_Outbreaks";
+    else if (state.currentState == State::NotEnoughPlayerCards) status = "Loss_DeckEmpty";
+    else if (state.currentState == State::NoMoreDiseaseCubes) status = "Loss_CubesEmpty";
+    else if (state.currentState == State::InProgress) status = "Stuck";
+
+    result["done"] = state.currentState != State::InProgress;
+    result["won"] = state.currentState == State::AllCured;
+    result["status"] = status;
+    result["turns"] = 1;
+    result["macro"] = macro_list;
+    result["cured_count"] = (int)state.gameFlags.GetCuredCount();
+    result["outbreaks"] = (int)state.gameFlags.GetOutbreaks();
+    result["score"] = GetScore();
+    return result;
+}
+
+py::dict PandemicEnv::PlayMacroGame(int iterations)
+{
+    int turns_played = 0;
+
+    while (state.currentState == State::InProgress) {
+        StepMacro(iterations);
+        turns_played++;
+    }
+
+    py::dict result;
+    std::string status = "InProgress";
+    if (state.currentState == State::AllCured) status = "Win_AllCured";
+    else if (state.currentState == State::OutbreakMarkerMaxed) status = "Loss_Outbreaks";
+    else if (state.currentState == State::NotEnoughPlayerCards) status = "Loss_DeckEmpty";
+    else if (state.currentState == State::NoMoreDiseaseCubes) status = "Loss_CubesEmpty";
+    else if (state.currentState == State::InProgress) status = "Stuck";
+
+    result["status"] = status;
+    result["won"] = state.currentState == State::AllCured;
+    result["turns"] = turns_played;
+    result["cured_count"] = (int)state.gameFlags.GetCuredCount();
+    result["outbreaks"] = (int)state.gameFlags.GetOutbreaks();
+    result["score"] = GetScore();
+    return result;
+}
+
 py::dict PandemicEnv::GetGameInfo()
 {
     py::dict info;
@@ -127,7 +192,7 @@ py::dict PandemicEnv::GetGameInfo()
 
 float PandemicEnv::GetScore()
 {
-    return CalculateHeuristicScore(state, Weights());
+    return CalculateHeuristicScoreNew(state, heuristic_weights);
 }
 
 PYBIND11_MODULE(pandemic_cpp, m) {
@@ -143,12 +208,33 @@ PYBIND11_MODULE(pandemic_cpp, m) {
         initialized = true;
     }
 
+    py::class_<Weights>(m, "Weights")
+        .def(py::init<>())
+        .def_readwrite("cure_weight", &Weights::cure_weight)
+        .def_readwrite("card_progression", &Weights::card_progression)
+        .def_readwrite("station_dist_reward", &Weights::station_dist_reward)
+        .def_readwrite("outbreak_penalty", &Weights::outbreak_penalty)
+        .def_readwrite("hotspot_penalty", &Weights::hotspot_penalty)
+        .def_readwrite("cube_pressure", &Weights::cube_pressure)
+        .def_readwrite("deck_progress_penalty", &Weights::deck_progress_penalty)
+        .def_readwrite("hotspot_approach_weight", &Weights::hotspot_approach_weight)
+        .def_readwrite("station_network_weight", &Weights::station_network_weight)
+        .def_readwrite("chain_reaction_penalty", &Weights::chain_reaction_penalty)
+        .def_readwrite("rendezvous_penalty_weight", &Weights::rendezvous_penalty_weight)
+        .def_readwrite("researcher_meetup_weight", &Weights::researcher_meetup_weight)
+        .def_readwrite("medic_treat_weight", &Weights::medic_treat_weight)
+        .def_readwrite("qs_protect_weight", &Weights::qs_protect_weight)
+        .def("print", &Weights::Print);
+
     py::class_<PandemicEnv>(m, "PandemicEnv")
-        .def(py::init<int>(), "seed"_a = 42)
+        .def(py::init<int, int, int>(), "diff"_a = 0, "players"_a = 4, "seed"_a = 42)
         .def("reset", &PandemicEnv::Reset)
         .def("step", &PandemicEnv::Step)
         .def("get_tensor", &PandemicEnv::GetTensor)
         .def("get_valid_mask", &PandemicEnv::GetValidMask)
         .def("run_mcts", &PandemicEnv::RunMCTS)
-        .def("get_info", &PandemicEnv::GetGameInfo);
+        .def("step_macro", &PandemicEnv::StepMacro)
+        .def("play_macro_game", &PandemicEnv::PlayMacroGame)
+        .def("get_info", &PandemicEnv::GetGameInfo)
+        .def_readwrite("weights", &PandemicEnv::heuristic_weights);
 }

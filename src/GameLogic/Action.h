@@ -2,6 +2,7 @@
 #define ACTION_H
 
 #include "Globals.h"
+#include "Cards.h"
 #include <iostream>
 #include <format>
 
@@ -36,8 +37,8 @@ enum ActionType : uint8_t {
 
 struct Action {
     union {
-        uint32_t raw_data;
-
+        uint32_t raw_data = 0;
+         
         struct {
             uint32_t type : 5;
         } base;
@@ -188,6 +189,8 @@ struct Action {
     const char* GetActionName(uint8_t type) const;
     void Print() const;
 };
+
+std::string GetActionString(const Action& action);
 
 struct ActionList {
     const static int SIZE = 1024;

@@ -101,3 +101,98 @@ void ActionList::Print() const
     }
     std::cout << "--------------------------------------\n";
 }
+
+std::string GetActionString(const Action& action)
+{
+    ActionType type = static_cast<ActionType>(action.base.type);
+
+    switch (type) {
+        // --- MOVE ACTIONS ---
+    case DRIVE:
+        return "Drive: Player " + std::to_string(action.move.executing_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city);
+    case DIRECT_FLIGHT:
+        return "Direct Flight: Player " + std::to_string(action.move.executing_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city);
+    case CHARTER_FLIGHT:
+        return "Charter Flight: Player " + std::to_string(action.move.executing_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city);
+    case SHUTTLE_FLIGHT:
+        return "Shuttle Flight: Player " + std::to_string(action.move.executing_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city);
+
+        // --- STANDARD ACTIONS ---
+    case BUILD:
+        return "Build Research Station: Player " + std::to_string(action.move.executing_player_id) +
+            " at " + CardRegistry::GetName(action.move.target_city);
+    case TREAT:
+        return "Treat Disease: Player " + std::to_string(action.treat.player_id) +
+            " at " + CardRegistry::GetName(action.treat.target_city) +
+            " (Color ID: " + std::to_string(action.treat.color_id) + ")";
+    case SHARE:
+        return std::string("Share Knowledge: Player ") + std::to_string(action.share.player_id) +
+            (action.share.is_giving ? " gives " : " takes ") +
+            CardRegistry::GetName(action.share.target_city) +
+            (action.share.is_giving ? " to Player " : " from Player ") +
+            std::to_string(action.share.receiving_player_id);
+    case CURE:
+        return "Discover Cure: Color " + std::to_string(action.discover_cure.color_id) +
+            " using [" +
+            CardRegistry::GetName(action.discover_cure.color_card0_id) + ", " +
+            CardRegistry::GetName(action.discover_cure.color_card1_id) + ", " +
+            CardRegistry::GetName(action.discover_cure.color_card2_id) + ", " +
+            CardRegistry::GetName(action.discover_cure.color_card3_id) + ", " +
+            CardRegistry::GetName(action.discover_cure.color_card4_id) + "]";
+
+        // --- ROLE SPECIFIC ACTIONS ---
+    case DISPATCHER_MOVE:
+        return "Dispatcher Move: Dispatcher moves Player " + std::to_string(action.move.target_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city);
+    case DISPATCHER_MOVE_AS:
+        return "Dispatcher Move As: Dispatcher moves Player " + std::to_string(action.move.target_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city) + " as a standard move";
+    case EXPERT_BUILD:
+        return "Ops Expert Build: Player " + std::to_string(action.ops_expert.executing_player_id) +
+            " at " + CardRegistry::GetName(action.ops_expert.target_city);
+    case EXPERT_MOVE:
+        return "Ops Expert Move: Player " + std::to_string(action.ops_expert.executing_player_id) +
+            " to " + CardRegistry::GetName(action.ops_expert.target_city) +
+            " discarding " + CardRegistry::GetName(action.ops_expert.discard_city);
+    case PLANNER_TAKE:
+        return "Planner Take: Retrieve " + CardRegistry::GetName(action.move.target_city) + " from discard";
+    case PLANNER_USE:
+        return "Planner Use: Use stored Event Card";
+
+        // --- EVENT CARDS ---
+    case GOVERNMENT_GRANT:
+        return "Event (Govt Grant): Build Station at " + CardRegistry::GetName(action.move.target_city);
+    case AIRLIFT:
+        return "Event (Airlift): Move Player " + std::to_string(action.move.target_player_id) +
+            " to " + CardRegistry::GetName(action.move.target_city);
+    case RESILIENT_POPULATION:
+        return "Event (Resilient Pop): Remove " + CardRegistry::GetName(action.move.target_city);
+    case ONE_QUIET_NIGHT:
+        return "Event (One Quiet Night): Skip next infection step";
+    case FORECAST:
+        return "Event (Forecast): Player " + std::to_string(action.forecast.player_id) +
+            " rearranged top cards to [" +
+            CardRegistry::GetName(action.forecast.card_index0) + ", " +
+            CardRegistry::GetName(action.forecast.card_index1) + ", " +
+            CardRegistry::GetName(action.forecast.card_index2) + ", " +
+            CardRegistry::GetName(action.forecast.card_index3) + ", " +
+            CardRegistry::GetName(action.forecast.card_index4) + ", " +
+            CardRegistry::GetName(action.forecast.card_index5) + "]";
+
+        // --- GAME SYSTEM ACTIONS ---
+    case DISCARD_CARD:
+        return "Discard Card: Player " + std::to_string(action.move.executing_player_id) +
+            " discards " + CardRegistry::GetName(action.move.target_city);
+    case REMOVE_STATION:
+        return "Remove Station: Remove from " + CardRegistry::GetName(action.move.target_city);
+    case END_TURN:
+        return "End Turn";
+
+    default:
+        return "Unknown Action (Type ID: " + std::to_string(static_cast<int>(type)) + ")";
+    }
+}

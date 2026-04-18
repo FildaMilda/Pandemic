@@ -238,9 +238,11 @@ struct GameState {
 
 			if (card == CardRegistry::GetEpidemicCardID()) {
 				ResolveEpidemic();
+				gameFlags.epidemic_card_drawn = true;
 			}
 			else {
 				players.AddCard(gameFlags.GetActivePlayer(), card);
+				gameFlags.epidemic_card_drawn = false;
 			}
 		}
 	}
@@ -300,14 +302,16 @@ struct GameState {
 	void DoSmartDiscover(uint8_t player_id, ColorType color);
 
 	void GetPossibleActions(ActionList& list) const;
-	void GetFilteredActions(ActionList& list) const;
-	void AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
 	void AddConPlannerActions(ActionList& list) const;
 	void AddDispatcherActions(ActionList& list) const;
 	void AddOpsExpertActions(ActionList& list) const;
+
+	void GetFilteredActions(ActionList& list) const;
 	void AddFilteredDispatcherActions(ActionList& list) const;
 	void AddFilteredOpsExpertActions(ActionList& list) const;
 	void AddFilteredEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
+
+	void AddEventAction(ActionList& list, uint8_t event_card_id, uint8_t card_owner_id) const;
 
 	void GetPolicyTurns(TurnList& list) const;
 	void Execute(Turn& turn, DrawnCards* cards = nullptr);
@@ -315,7 +319,10 @@ struct GameState {
 	void AddShareTurns(TurnList& list) const;
 	void AddTreatTurns(TurnList& list) const;
 	void AddBuildTurns(TurnList& list) const;
+	void AddSpecialTurns(TurnList& list) const; // Role special actions
 	void AddWalkTurn(TurnList& list) const;
+
+	void HandleEvents(); // Uses event cards 
 	void HandleLimits(); // Handles Hand and Station Limits
 
 	void Execute(Action action, DrawnCards* cards = nullptr);
@@ -328,6 +335,7 @@ struct GameState {
 		uint8_t player_id,
 		uint8_t target_city,
 		bool use_events,
+		bool use_cards,
 		ColorType protected_color,
 		int protected_threshold,
 		Turn& out_path,
@@ -336,6 +344,7 @@ struct GameState {
 	bool GetFastestPathToAnyStation(
 		uint8_t player_id,
 		bool use_events,
+		bool use_cards,
 		ColorType protected_color,
 		int protected_threshold,
 		Turn& out_path,

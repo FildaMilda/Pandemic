@@ -50,6 +50,7 @@ void PandemicGame::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_game_over"), &PandemicGame::is_game_over);
     ClassDB::bind_method(D_METHOD("get_mcts_macro_action", "iterations"), &PandemicGame::get_mcts_macro_action);
     ClassDB::bind_method(D_METHOD("clone"), &PandemicGame::clone);
+    ClassDB::bind_method(D_METHOD("get_action_string"), &PandemicGame::get_action_string);
     ClassDB::bind_method(D_METHOD("test"), &PandemicGame::test);
 }
 
@@ -300,10 +301,12 @@ Array godot::PandemicGame::get_city_neighbors(int city_id)
 Array godot::PandemicGame::get_mcts_macro_action(int iterations)
 {
     Array actions;
+    //MacroMCTS mcts; // Local allocation, destroyed securely after use
     Turn bestMacro = mcts.Search(game, iterations);
 
     for (int i = 0; i < bestMacro.count; i++) {
         actions.push_back((int64_t)bestMacro.actions[i].raw_data);
+        godot::print_line(bestMacro.actions[i].raw_data);
     }
 
     return actions;
@@ -316,10 +319,20 @@ bool godot::PandemicGame::is_game_over()
 
 PandemicGame* godot::PandemicGame::clone()
 {
+    // Important: Do not copy the MacroMCTS instance. It is huge and has preallocated memory 
+    // that may trigger placement delete panics if Godot manages its lifetime. 
     PandemicGame* cloned_node = memnew(PandemicGame);
     cloned_node->game = this->game;
     cloned_node->rng = this->rng;
     return cloned_node;
+}
+
+String godot::PandemicGame::get_action_string(int64_t p_raw_data)
+{
+    Action action;
+    action.raw_data = static_cast<uint32_t>(p_raw_data);
+    std::string cpp_string = GetActionString(action);
+    return String(cpp_string.c_str());
 }
 
 void godot::PandemicGame::test()
@@ -333,6 +346,7 @@ void initialize_pandemic_module(ModuleInitializationLevel p_level) {
     }
 
     CardRegistry::Initialize();
+    MapData::PrecomputeDistancesAndPaths();
 
     ClassDB::register_class<PandemicGame>();
 }

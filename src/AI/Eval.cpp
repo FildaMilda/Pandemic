@@ -184,7 +184,7 @@ float CalculateHeuristicScore(const GameState& state, const Weights& weights)
 
 float CalculateHeuristicScoreNew(const GameState& state, const Weights& weights)
 {
-    if (state.currentState == State::AllCured) return std::numeric_limits<float>::infinity();
+    if (state.currentState == State::AllCured) return 1000000.0f;
 
     double score = 0.0;
     uint8_t activePlayer = state.gameFlags.GetActivePlayer();
@@ -250,7 +250,7 @@ float CalculateHeuristicScoreNew(const GameState& state, const Weights& weights)
     }
 
     // Station Network Bonus (Mobility)
-    score += state.cityState.GetStationCount() * 0.01 * weights.station_network_weight;
+    score += state.cityState.GetStationCount() * 0.1 * weights.station_network_weight;
 
 
     // ===== Negative =====

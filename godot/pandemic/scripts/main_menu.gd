@@ -38,6 +38,7 @@ func _pre_build_scene() -> void:
 
 func _on_play_pressed() -> void:
 	print("[DEBUG] Play Button click registered at: ", Time.get_ticks_msec())
+	Globals.is_observe_ai = false
 	_save_settings_to_globals()
 	
 	if ready_scene_instance != null:
@@ -50,7 +51,18 @@ func _on_play_pressed() -> void:
 		get_tree().change_scene_to_packed(Globals.preloaded_main_scene)
 
 func _on_observe_pressed() -> void:
-	print("Observe AI logic not implemented yet!")
+	print("[DEBUG] Observe Button click registered at: ", Time.get_ticks_msec())
+	Globals.is_observe_ai = true
+	_save_settings_to_globals()
+	
+	if ready_scene_instance != null:
+		var root = get_tree().root
+		get_tree().current_scene.queue_free()
+		root.add_child(ready_scene_instance)
+		get_tree().current_scene = ready_scene_instance
+	else:
+		# Switch instantly using the preloaded scene stored in Globals
+		get_tree().change_scene_to_packed(Globals.preloaded_main_scene)
 
 func _save_settings_to_globals() -> void:
 	Globals.game_difficulty = difficulty_option.get_item_id(difficulty_option.selected)

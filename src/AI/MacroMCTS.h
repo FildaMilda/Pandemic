@@ -39,12 +39,12 @@ private:
 public:
     MacroMCTS() {
         // Pre-allocate memory for 1 Million nodes to prevent vector reallocation
-        arena.reserve(1000000);
+        arena.reserve(10000); // reduced from 1M to 10k to prevent 17GB allocation
         rng.seed(1337); // Seed it properly in production
     }
 
     // Returns the best macro to take from the root state
-    Turn Search(const GameState& root_state, int iterations) {
+    Turn Search(const GameState& root_state, int iterations, const Weights& weights = Weights()) {
         arena.clear();
 
         // Create the root node
@@ -85,7 +85,7 @@ public:
             // ==========================================
             // 3. SIMULATION (Random Rollout)
             // ==========================================
-            double score = Simulate(state);
+            double score = Simulate(state, weights);
 
             // ==========================================
             // 4. BACKPROPAGATION (Update tree)
@@ -127,7 +127,7 @@ private:
         }
         
         double exploit_range = max_exploit - min_exploit;
-        if (exploit_range < 1e-6) exploit_range = 1.0; // Prevent divide by zero
+        if (!std::isfinite(exploit_range) || exploit_range < 1e-6) exploit_range = 1.0; // Prevent divide by zero / NaN
 
         // Second pass: Calculate normalized UCB
         child_id = arena[parent_id].first_child_id;
@@ -139,10 +139,11 @@ private:
             
             // Normalize exploit between 0.0 and 1.0 so UCT_CONSTANT behaves predictably
             double normalized_exploit = (mixed_score - min_exploit) / exploit_range;
+            if (!std::isfinite(normalized_exploit)) normalized_exploit = 0.0;
             double explore = UCT_CONSTANT * std::sqrt(log_parent_visits / child.visits);
             double uct_value = normalized_exploit + explore;
 
-            if (uct_value > best_uct) {
+            if (std::isfinite(uct_value) && uct_value > best_uct) {
                 best_uct = uct_value;
                 best_child = child_id;
             }
@@ -150,11 +151,15 @@ private:
             child_id = child.next_sibling_id;
         }
 
+        if (best_child == -1 && arena[parent_id].first_child_id != -1) {
+            best_child = arena[parent_id].first_child_id;
+        }
+
         return best_child;
     }
 
     // Evaluates a Pandemic game state for cooperative MCTS
-    double Simulate(GameState state) {
+    double Simulate(GameState state, const Weights& weights) {
         TurnList rollout_moves;
         int depth = 0;
 
@@ -173,7 +178,7 @@ private:
             depth++;
         }
 
-        return CalculateHeuristicScoreNew(state, Weights());
+        return CalculateHeuristicScoreNew(state, weights);
     }
 
     Turn GetMostVisitedChild(int parent_id) {

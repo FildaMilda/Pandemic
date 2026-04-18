@@ -1,11 +1,10 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import random
 from collections import deque
-import numpy as np
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -16,7 +15,8 @@ import model
 BATCH_SIZE = 128
 LEARNING_RATE = 0.001
 MEMORY_SIZE = 25000
-MCTS_ITERATIONS = 100
+MACRO_MCTS_ITERATIONS = 1000
+
 
 class Trainer:
     def __init__(self):
@@ -24,106 +24,94 @@ class Trainer:
         self.optimizer = optim.Adam(self.model.parameters(), lr=LEARNING_RATE)
         self.memory = deque(maxlen=MEMORY_SIZE)
 
-        self.writer = SummaryWriter('runs/pandemic_experiment_1')
+        self.writer = SummaryWriter('runs/pandemic_macro_experiment_1')
         self.total_steps = 0
 
     def execute_self_play(self, num_games, iteration):
-        iteration_results = []
         total_cures = 0
         wins = 0
 
         for _ in tqdm(range(num_games)):
             seed = random.randint(0, 9999)
-            env = pandemic_cpp.PandemicEnv(seed)
-            game_data = []
-            
-            done = False
-            while not done:
+            env = pandemic_cpp.PandemicEnv(0, 4, seed)
+            env.weights = pandemic_cpp.Weights()
 
-                state = env.get_tensor()
-                mask = env.get_valid_mask()
-                
-                # 1. Run C++ MCTS (Pass the model's predict function)
-                # Note: run_mcts returns visit counts as probabilities
-                mcts_probs = env.run_mcts(MCTS_ITERATIONS, self.model)
-                
-                # 2. Pick action (During training, we sample; during play, we pick max)
-                action = np.random.choice(len(mcts_probs), p=mcts_probs)
-                reward, done = env.step(action)
+            game_states = []
+            game_result = None
 
-                # 3. Store state and MCTS search results
-                game_data.append([state, mcts_probs, reward])
-            
-            info = env.get_info()
-            total_cures += info['cured_count']
-            if info['status'] == "Win_AllCured":
+            while True:
+                info = env.get_info()
+                if info["status"] != "InProgress":
+                    game_result = info
+                    break
+
+                # Capture the current macro-state before selecting the next turn.
+                state = np.array(env.get_tensor(), dtype=np.float32)
+                game_states.append(state)
+
+                # One full macro turn chosen by MacroMCTS inside C++.
+                step_result = env.step_macro(MACRO_MCTS_ITERATIONS)
+                game_result = step_result
+
+                if step_result["done"]:
+                    break
+
+            total_cures += int(game_result["cured_count"])
+            if game_result["won"]:
                 wins += 1
 
-            # 4. Final outcome 'reward' is either 1.0 (win) or -1.0 (loss)
-            final_result = game_data[-1][2]
-            for entry in game_data:
-                entry[2] = (entry[2] * 0.4) + (final_result * 0.6)
-                self.memory.append(entry)
+            # Value target: final macro-game outcome.
+            target_v = 1.0 if game_result["won"] else -1.0
+            for state in game_states:
+                self.memory.append((state, target_v))
 
         win_rate = wins / num_games
         cure_percentage = total_cures / (num_games * 4)
-        
+
         self.writer.add_scalar('Game/Win_Rate', win_rate, iteration)
         self.writer.add_scalar('Game/Cure_Percentage', cure_percentage, iteration)
         print(f"Iteration {iteration}: Win Rate: {win_rate:.2f}, Cure %: {cure_percentage:.2f}")
 
     def train_step(self):
         if len(self.memory) < BATCH_SIZE:
-            return
+            return None
 
-        # Sample a batch
         batch = random.sample(self.memory, BATCH_SIZE)
-        states, target_pis, target_vs = zip(*batch)
+        states, target_vs = zip(*batch)
 
         states = torch.FloatTensor(np.array(states))
-        target_pis = torch.FloatTensor(np.array(target_pis))
         target_vs = torch.FloatTensor(np.array(target_vs)).unsqueeze(1)
 
-        # Forward Pass
         self.model.train()
-        log_pis, vs = self.model(states)
+        vs = self.model(states)
 
-        # Loss Calculation
-        # Policy Loss: Cross Entropy between MCTS probs and Model probs
-        policy_loss = -torch.mean(torch.sum(target_pis * log_pis, dim=1))
-        # Value Loss: Mean Squared Error between Actual result and Predicted result
         value_loss = F.mse_loss(vs, target_vs)
-        
-        total_loss = policy_loss + value_loss
 
-        # Backprop
         self.optimizer.zero_grad()
-        total_loss.backward()
+        value_loss.backward()
         self.optimizer.step()
-        
-        self.writer.add_scalar('Loss/Total', total_loss.item(), self.total_steps)
-        self.writer.add_scalar('Loss/Policy', policy_loss.item(), self.total_steps)
+
         self.writer.add_scalar('Loss/Value', value_loss.item(), self.total_steps)
         self.total_steps += 1
 
-        return total_loss.item()
+        return value_loss.item()
 
-# --- MAIN EXECUTION ---
+
 if __name__ == "__main__":
     trainer = Trainer()
     print("Starting Training...")
 
     for iteration in range(1000):
-        # 1. Generate Experience
-        print("Playing games...")
+        print("Playing macro games...")
         trainer.execute_self_play(num_games=20, iteration=iteration)
-        
-        # 2. Learn from Experience
+
         print("Learning from games...")
+        last_loss = None
         if len(trainer.memory) >= BATCH_SIZE:
-            for _ in range(20): 
-                loss = trainer.train_step()
-        
+            for _ in range(20):
+                last_loss = trainer.train_step()
+
         if iteration % 10 == 0:
-            print(f"Iteration {iteration} | Loss: {loss:.4f} | Buffer Size: {len(trainer.memory)}")
+            loss_text = f"{last_loss:.4f}" if last_loss is not None else "n/a"
+            print(f"Iteration {iteration} | Loss: {loss_text} | Buffer Size: {len(trainer.memory)}")
             torch.save(trainer.model.state_dict(), f"models/pandemic_v{iteration}.pth")

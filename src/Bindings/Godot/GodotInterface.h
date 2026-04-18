@@ -61,6 +61,8 @@ namespace godot {
         Array get_mcts_macro_action(int iterations);
         bool is_game_over();
         PandemicGame* clone();
+        String get_action_string(int64_t raw_data);
+
         void test();
     };
 
